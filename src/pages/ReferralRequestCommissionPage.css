@@ -1,0 +1,270 @@
+/* Request Commission page (employer) */
+.rc-layout .rq-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  margin-top: 26px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #008990;
+}
+
+.rc-page-title.rq-title {
+  margin: 14px 0 6px;
+}
+
+.rq-desc {
+  margin: 0 0 24px;
+  font-size: 16px;
+  color: #64748b;
+}
+
+.rq-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 400px;
+  gap: 24px;
+  align-items: start;
+}
+
+.rq-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.rq-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+}
+
+.re-month-filter.rq-filter {
+  margin: 0;
+}
+
+.rq-toolbar-note {
+  font-size: 15px;
+  color: #64748b;
+}
+
+.rq-grid {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1.9fr) minmax(0, 1.6fr) minmax(0, 0.9fr) minmax(0, 1.3fr) minmax(0, 0.9fr) minmax(0, 1fr);
+  column-gap: 20px;
+  align-items: center;
+  padding: 0 24px;
+}
+
+.rq-head {
+  height: 46px;
+  background: #f1f5f9;
+  font-size: 15px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.rq-row {
+  min-height: 76px;
+  border-top: 1px solid #e2e8f0;
+  font-size: 16px;
+  color: #141b2e;
+  cursor: pointer;
+}
+
+.rq-head + .rq-row {
+  border-top: none;
+}
+
+.rq-row:hover {
+  background: #f8fafc;
+}
+
+.rq-row.selected {
+  background: #f0fbfc;
+}
+
+.rq-company {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.rq-logo {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: #008990;
+}
+
+.rq-logo img {
+  max-width: 28px;
+  max-height: 28px;
+}
+
+.rq-company-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rq-company-text b,
+.rq-company-text small {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rq-company-text b {
+  font-weight: 600;
+}
+
+.rq-company-text small {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.rq-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.rq-kind {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.rq-kind.plan {
+  background: #e6f7f8;
+  color: #008990;
+}
+
+.rq-kind.addon {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+
+.rq-muted {
+  font-size: 15px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rq-commission {
+  font-weight: 600;
+  color: #008990;
+}
+
+.rq-row:not(.selected) .rq-commission {
+  color: #64748b;
+  font-weight: 500;
+}
+
+.rq-foot {
+  height: 56px;
+  background: #f8fafc;
+  border-top: 1.5px solid #e2e8f0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #141b2e;
+}
+
+/* Summary panel */
+.rq-summary {
+  position: sticky;
+  top: 0;
+  padding: 22px 24px 24px;
+}
+
+.rq-summary h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 600;
+  color: #141b2e;
+}
+
+.rq-summary-line,
+.rq-summary-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  font-size: 16px;
+  color: #64748b;
+}
+
+.rq-summary-line b {
+  color: #141b2e;
+  font-weight: 600;
+}
+
+.rq-summary-total {
+  margin-top: 6px;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 18px;
+  font-weight: 600;
+  color: #141b2e;
+}
+
+.rq-summary-total b {
+  font-size: 26px;
+  color: #008990;
+}
+
+.rc-layout .rq-send,
+.rc-layout .rq-cancel {
+  width: 100%;
+  margin-top: 14px;
+}
+
+.rc-layout .rq-cancel {
+  margin-top: 10px;
+}
+
+.rq-note {
+  margin: 14px 0 0;
+  font-size: 14px;
+  color: #64748b;
+  text-align: center;
+}
+
+.rq-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 60px 24px;
+  background: #ffffff;
+  border: 1.5px dashed #e2e8f0;
+  border-radius: 12px;
+  text-align: center;
+  font-size: 16px;
+  color: #64748b;
+}
+
+.rq-empty b {
+  font-size: 20px;
+  color: #141b2e;
+}
+
+.rq-empty .rc-btn-secondary {
+  margin-top: 10px;
+}

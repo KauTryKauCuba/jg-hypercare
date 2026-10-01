@@ -1,0 +1,143 @@
+/* Builds on ReferralCodePage.css (rc-*) — only page-specific pieces live here. */
+
+.rc-layout .rcp-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  margin-top: 26px;
+  font-size: 16px;
+  font-weight: 500;
+  color: #008990;
+}
+
+.rcp-title-row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin: 18px 0 26px;
+}
+
+.rc-company-logo.rcp-owner-logo {
+  width: 64px;
+  height: 64px;
+  background: #ffffff;
+}
+
+.rc-page-title.rcp-title {
+  margin: 0;
+}
+
+.rcp-subtitle {
+  font-size: 16px;
+  color: #64748b;
+}
+
+.rcp-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 21px;
+}
+
+.rcp-stat {
+  border-radius: 16px;
+  padding: 23px 26px;
+  display: flex;
+  flex-direction: column;
+}
+
+.rcp-stat.green { background: #d5ecd8; }
+.rcp-stat.cyan { background: #d7eff3; }
+.rcp-stat.amber { background: #f7edd4; }
+
+.rcp-stat-label {
+  font-size: 18.5px;
+  font-weight: 600;
+}
+
+.rcp-stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  margin-top: 10px;
+}
+
+.rcp-stat-sub {
+  font-size: 16px;
+  color: #64748b;
+  margin-top: 10px;
+}
+
+.rc-panel.rcp-panel {
+  flex: none;
+  min-height: 0;
+  padding-bottom: 12px;
+}
+
+.rcp-panel-header {
+  height: 90px;
+  display: flex;
+  align-items: center;
+  padding: 0 26px;
+}
+
+.rcp-grid {
+  display: grid;
+  grid-template-columns: 1.8fr 0.75fr 1fr 0.8fr 0.8fr 1fr 0.85fr 0.95fr;
+  column-gap: 20px;
+  align-items: center;
+}
+
+.rc-row.rcp-row {
+  height: 115px;
+}
+
+.rcp-row-logo {
+  width: 26px !important;
+}
+
+.rcp-cell {
+  font-size: 18px;
+  color: #141b2e;
+}
+
+.rcp-empty {
+  margin: 14px 26px;
+  padding: 40px 0;
+  border: 1.5px dashed #e2e8f0;
+  border-radius: 12px;
+  text-align: center;
+  font-size: 17px;
+  color: #94a3b8;
+}
+
+.rcp-center {
+  display: flex;
+  justify-content: center;
+}
+
+.rcp-plan,
+.rcp-spending {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rcp-plan {
+  align-items: center;
+}
+
+.rcp-spending-total {
+  font-size: 18px;
+  font-weight: 600;
+  color: #141b2e;
+}
+
+.rcp-sub-text {
+  font-size: 14px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.rcp-row .rc-company-meta {
+  white-space: nowrap;
+}

@@ -1,0 +1,7 @@
+services:
+  jg-hypercare:
+    build: .
+    container_name: jg-hypercare
+    ports:
+      - "4110:4110"
+    restart: unless-stopped
