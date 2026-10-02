@@ -35,6 +35,34 @@ export default function ReferralRequestCommissionPage() {
   const allSelected = visible.length > 0 && selectedRows.length === visible.length;
   const selectedCompanies = new Set(selectedRows.map((row) => row.company.name)).size;
 
+  // Purchases are grouped by where the company came from: the main code, or a code assigned to someone.
+  const assignedCodes = referral.assignedCodes ?? [];
+  const groups = [
+    { id: 'main', title: 'Your referral code', sub: `${referral.code ?? ''} · earns ${rate}%`, assigned: undefined },
+    ...assignedCodes.map((a) => ({
+      id: a.id,
+      title: `Assigned to ${a.name}`,
+      sub: `${a.code} · earns ${rate}%`,
+      assigned: a,
+    })),
+  ]
+    .map((g) => ({
+      ...g,
+      rows: visible.filter((row) =>
+        g.assigned ? row.company.assignedId === g.assigned.id : !assignedCodes.some((a) => a.id === row.company.assignedId),
+      ),
+    }))
+    .filter((g) => g.rows.length > 0);
+  const sumCommission = (rows: typeof visible) => Math.round(rows.reduce((sum, row) => sum + row.amount, 0) * 100) / 100;
+  const selectedViaAssigned = selectedRows.filter((row) => assignedCodes.some((a) => a.id === row.company.assignedId));
+  const selectedViaMain = selectedRows.filter((row) => !selectedViaAssigned.includes(row));
+  const assigneeOwed = sumCommission(selectedViaAssigned);
+  const toggleGroup = (rows: typeof visible) => {
+    const ids = rows.map((row) => row.line.id);
+    const all = ids.every((id) => selectedIds.includes(id));
+    setSelectedIds((prev) => (all ? prev.filter((id) => !ids.includes(id)) : [...new Set([...prev, ...ids])]));
+  };
+
   const backToCompany = () => navigate(`/referral-code-employer?company=${company.id}`);
 
   const changeCompany = (id: string) => {
@@ -142,31 +170,54 @@ export default function ReferralRequestCommissionPage() {
                 <span className="re-num">Commission ({rate}%)</span>
               </div>
 
-              {visible.map(({ company: r, line, amount }) => {
-                const checked = selectedIds.includes(line.id);
+              {groups.map((g) => {
+                const groupSelected = g.rows.filter((row) => selectedIds.includes(row.line.id));
                 return (
-                  <label key={line.id} className={`rq-grid rq-row${checked ? ' selected' : ''}`}>
-                    <input type="checkbox" className="re-check" checked={checked} onChange={() => toggle(line.id)} />
-                    <span className="rq-company">
-                      <span className="rq-logo">
-                        {r.logo ? <img src={r.logo} alt="" /> : initials(r.name)}
+                  <div key={g.id} className="rq-group">
+                    <label className="rq-grid rq-group-head">
+                      <input
+                        type="checkbox"
+                        className="re-check"
+                        checked={groupSelected.length === g.rows.length}
+                        onChange={() => toggleGroup(g.rows)}
+                        aria-label={`Select all from ${g.title}`}
+                      />
+                      <span className="rq-group-title">
+                        <b>{g.title}</b>
+                        <span className="rc-pill rc-pill-teal">{g.sub}</span>
                       </span>
-                      <span className="rq-company-text">
-                        <b>{r.name}</b>
-                        <small>
-                          {r.industry} · code {r.codeUsed}
-                        </small>
+                      <span className="rq-group-total">
+                        {g.rows.length} {g.rows.length === 1 ? 'purchase' : 'purchases'} · {formatRM(sumCommission(g.rows))}
                       </span>
-                    </span>
-                    <span className="rq-item">
-                      {line.item}
-                      <span className={`rq-kind ${line.kind}`}>{line.kind === 'plan' ? 'Plan' : 'Add-on'}</span>
-                    </span>
-                    <span className="rq-muted">{line.date}</span>
-                    <span className="rq-muted">{line.detail}</span>
-                    <span className="re-num">{formatRM(line.amount)}</span>
-                    <span className="re-num rq-commission">{formatRM(amount)}</span>
-                  </label>
+                    </label>
+                    {g.rows.map(({ company: r, line, amount }) => {
+                const checked = selectedIds.includes(line.id);
+                    return (
+                      <label key={line.id} className={`rq-grid rq-row${checked ? ' selected' : ''}`}>
+                        <input type="checkbox" className="re-check" checked={checked} onChange={() => toggle(line.id)} />
+                        <span className="rq-company">
+                          <span className="rq-logo">
+                            {r.logo ? <img src={r.logo} alt="" /> : initials(r.name)}
+                          </span>
+                          <span className="rq-company-text">
+                            <b>{r.name}</b>
+                            <small>
+                              {r.industry} · code {r.codeUsed}
+                            </small>
+                          </span>
+                        </span>
+                        <span className="rq-item">
+                          {line.item}
+                          <span className={`rq-kind ${line.kind}`}>{line.kind === 'plan' ? 'Plan' : 'Add-on'}</span>
+                        </span>
+                        <span className="rq-muted">{line.date}</span>
+                        <span className="rq-muted">{line.detail}</span>
+                        <span className="re-num">{formatRM(line.amount)}</span>
+                        <span className="re-num rq-commission">{formatRM(amount)}</span>
+                      </label>
+                    );
+                    })}
+                  </div>
                 );
               })}
 
@@ -197,6 +248,16 @@ export default function ReferralRequestCommissionPage() {
                 </b>
               </div>
               <div className="rq-summary-line">
+                <span>Via your referral code</span>
+                <b>{formatRM(sumCommission(selectedViaMain))}</b>
+              </div>
+              {assignedCodes.length > 0 && (
+                <div className="rq-summary-line">
+                  <span>Via assigned codes</span>
+                  <b>{formatRM(sumCommission(selectedViaAssigned))}</b>
+                </div>
+              )}
+              <div className="rq-summary-line">
                 <span>Referral spending</span>
                 <b>{formatRM(selectedSpending)}</b>
               </div>
@@ -208,6 +269,11 @@ export default function ReferralRequestCommissionPage() {
                 <span>Amount to request</span>
                 <b>{formatRM(selectedAmount)}</b>
               </div>
+              {assigneeOwed > 0 && (
+                <p className="rq-owed">
+                  Of this, <b>{formatRM(assigneeOwed)}</b> is paid on to assignees.
+                </p>
+              )}
               <button className="rc-btn-primary rq-send" onClick={sendRequest} disabled={selectedRows.length === 0}>
                 Send Request
               </button>

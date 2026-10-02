@@ -17,6 +17,7 @@ export type ReferredCompany = {
   dateJoin: string;
   location: string;
   codeUsed: string;
+  assignedId?: string;
   verified: boolean;
   plan: Plan;
   billing?: Billing;
@@ -51,7 +52,7 @@ export const getReferredCompanies = (companyId: string, referral: ReferralState)
   const catalogue = [...(REFERRED_BY[companyId] ?? []), ...NEW_JOINER_POOL];
   return (referral.newReferrals ?? []).flatMap((r) => {
     const details = catalogue.find((c) => c.name === r.name);
-    return details ? [{ ...details, dateJoin: r.dateJoin, codeUsed: r.codeUsed }] : [];
+    return details ? [{ ...details, dateJoin: r.dateJoin, codeUsed: r.codeUsed, assignedId: r.assignedId }] : [];
   });
 };
 
@@ -62,6 +63,14 @@ export const nextJoiners = (companyId: string, referral: ReferralState): Company
   if (demo.length > 0 && !demo.some((c) => joined.has(c.name))) return demo;
   const next = NEW_JOINER_POOL.find((c) => !joined.has(c.name));
   return next ? [next] : [];
+};
+
+// Assigned codes only ever bring in companies from the pool, never the employer's first-change demo batch.
+export const nextPoolJoiner = (referral: ReferralState): CompanyDetails | undefined => {
+  const joined = new Set((referral.newReferrals ?? []).map((r) => r.name));
+  const left = NEW_JOINER_POOL.filter((c) => !joined.has(c.name));
+  // Paying companies first, so an assignee's earnings are visible in the demo.
+  return left.find((c) => c.plan !== 'Freemium') ?? left[0];
 };
 
 export type Addon = { id: string; name: string; price: number; unit: string };
@@ -167,7 +176,53 @@ export const randomJoinDates = (count: number, latestJoin?: string) => {
     .map((daysAgo) => formatDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() - daysAgo)));
 };
 
-export const lineCommission =(amount: number, rate: number) => Math.round(amount * rate) / 100;
+// What a code being checked is allowed to collide with: the main code it is replacing, or the assigned code it is editing.
+export type CodeExemption = { mainOf?: string; assignedId?: string };
+
+export type CodeConflict = 'taken' | 'retired';
+
+// A code must be unique across every company's main code and every assigned code,
+// and a code that was replaced is retired for good.
+export const codeConflict = (
+  code: string,
+  referrals: Record<string, ReferralState>,
+  exempt: CodeExemption,
+): CodeConflict | null => {
+  const states = Object.entries(referrals);
+  if (states.some(([, r]) => (r.retiredCodes ?? []).includes(code))) return 'retired';
+  const taken = states.some(
+    ([id, r]) =>
+      (id !== exempt.mainOf && r.code?.toUpperCase() === code) ||
+      (r.assignedCodes ?? []).some((a) => a.id !== exempt.assignedId && a.code.toUpperCase() === code),
+  );
+  return taken ? 'taken' : null;
+};
+
+export const isCodeTaken = (code: string, referrals: Record<string, ReferralState>, exempt: CodeExemption) =>
+  codeConflict(code, referrals, exempt) !== null;
+
+export const conflictMessage = (conflict: CodeConflict) =>
+  conflict === 'retired' ? 'This code was used before and cannot be used again.' : 'This code is already in use.';
+
+export type AssigneeStats = {
+  companies: ReferredCompany[];
+  spending: number;
+  commission: number;
+};
+
+// Assignees earn the employer's commission rate; the employer requests it from JobGiga and passes it on.
+export const assigneeStats = (
+  companyId: string,
+  referral: ReferralState,
+  assigned: { id: string },
+): AssigneeStats => {
+  const companies = getReferredCompanies(companyId, referral).filter((c) => c.assignedId === assigned.id);
+  const spending = companies.reduce((sum, c) => sum + spendingOf(c, referral), 0);
+  const commission = Math.round(companies.reduce((sum, c) => sum + commissionOf(c, referral), 0) * 100) / 100;
+  return { companies, spending, commission };
+};
+
+export const lineCommission = (amount: number, rate: number) => Math.round(amount * rate) / 100;
 
 export const commissionOf = (r: ReferredCompany, referral: ReferralState) =>
   Math.round(

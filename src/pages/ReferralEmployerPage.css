@@ -555,7 +555,7 @@
 
 .re-commission-request {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 2fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 2fr);
   column-gap: 24px;
   align-items: center;
   padding: 12px 0;
@@ -1159,4 +1159,47 @@ label.re-breakdown-row {
 .re-invoice-modal .rc-modal-actions button,
 .re-cancel-confirm-actions button {
   white-space: nowrap;
+}
+
+/* Which assigned person a referred company came through */
+.re-code-cell {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+}
+
+.re-via {
+  font-size: 13px;
+  color: #64748b;
+  max-width: 100%;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Invoice shows the uploaded file name (cut with an ellipsis if long); the Statement label is never cut */
+.rc-layout .re-commission-invoice .re-invoice-link {
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.rc-layout .re-commission-invoice .re-invoice-link:last-child:not([title]) {
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.rc-layout .re-commission-invoice .re-invoice-link[title] {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.re-commission-invoice {
+  display: flex;
+  min-width: 0;
 }

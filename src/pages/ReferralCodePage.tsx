@@ -7,11 +7,18 @@ import {
   formatDate,
   formatRM,
   getReferredCompanies,
+  isCodeTaken,
   openInvoice,
   statusSlug,
 } from '../data/referrals';
 import { downloadCommissionStatement, statementLinesFor, viewCommissionStatement } from '../data/commissionPdf';
-import { resetReferrals, updateReferral, useReferrals, type CommissionRequest } from '../store/referralStore';
+import {
+  resetReferrals,
+  updateReferral,
+  useReferrals,
+  type CommissionRequest,
+  type ReferralMap,
+} from '../store/referralStore';
 
 const STAT_CARDS = [
   { title: 'Total Employer', value: 25, sub: 'New Employer Today', subValue: '0', variant: 'green' },
@@ -31,10 +38,12 @@ const FILTERS = ['Job Title', 'Work Arrangement', 'Location'];
 
 const COMMISSION_RATES = [15, 20, 25];
 
-const generateCode = (name: string) => {
+// Codes run in activation order: VAD-0001 for the first company switched on, then NEX-0002, and so on.
+const generateCode = (name: string, referrals: ReferralMap) => {
   const prefix = name.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase();
-  const digits = Math.floor(1000 + Math.random() * 9000);
-  return `${prefix}-${digits}`;
+  let next = Object.values(referrals).filter((r) => r.commission !== null).length + 1;
+  while (isCodeTaken(`${prefix}-${String(next).padStart(4, '0')}`, referrals, {})) next++;
+  return `${prefix}-${String(next).padStart(4, '0')}`;
 };
 
 function ChevronDown() {
@@ -232,7 +241,8 @@ export default function ReferralCodePage() {
     updateReferral(company.id, {
       active: true,
       commission: selectedRate,
-      code: referrals[company.id].code ?? generateCode(company.name),
+      // A company never switched on before gets the next running number, replacing any placeholder code.
+      code: referrals[company.id].commission === null ? generateCode(company.name, referrals) : referrals[company.id].code,
     });
     closeModal();
   };

@@ -12,6 +12,18 @@ export type JoinedCompany = {
   name: string;
   dateJoin: string;
   codeUsed: string;
+  // Set when the company joined through a code VADS assigned to someone, not the main code.
+  assignedId?: string;
+};
+
+// A code the employer hands to a specific person, who earns the employer's commission rate on every company it brings in.
+export type AssignedCode = {
+  id: string;
+  name: string;
+  email: string;
+  code: string;
+  active: boolean;
+  createdAt: string;
 };
 
 export type CommissionStatus =
@@ -48,6 +60,9 @@ export type ReferralState = {
   commission: number | null;
   code: string | null;
   newReferrals?: JoinedCompany[];
+  assignedCodes?: AssignedCode[];
+  // Codes this company used before and replaced. They can never be used again, by anyone.
+  retiredCodes?: string[];
   addonPurchases?: AddonPurchase[];
   commissionRequests?: CommissionRequest[];
 };

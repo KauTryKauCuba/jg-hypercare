@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import AssignedCodes from '../components/AssignedCodes';
 import EmployerShell from '../components/EmployerShell';
 import './ReferralCodePage.css';
 import './ReferralEmployerPage.css';
@@ -15,6 +16,8 @@ import {
   openInvoice,
   formatDate,
   formatRM,
+  codeConflict,
+  conflictMessage,
   lineCommission,
   lineCommissionStatus,
   purchaseLinesOf,
@@ -94,6 +97,7 @@ export default function ReferralEmployerPage() {
   const isActive = referral.active && referral.code !== null;
   const referralLink = `https://jobgiga.com/vad/${referral.code}`;
   const referred = getReferredCompanies(company.id, referral);
+  const assignedName = (id?: string) => (id ? referral.assignedCodes?.find((a) => a.id === id)?.name : undefined);
   const commission = commissionSummary(company.id, referral);
   const commissionRequests = referral.commissionRequests ?? [];
 
@@ -208,9 +212,7 @@ export default function ReferralEmployerPage() {
   };
 
   const trimmedDraft = draftCode.trim();
-  const codeTaken = Object.entries(referrals).some(
-    ([id, r]) => id !== company.id && r.code?.toUpperCase() === trimmedDraft,
-  );
+  const conflict = codeConflict(trimmedDraft, referrals, { mainOf: company.id });
   const codeError =
     trimmedDraft.length === 0
       ? 'Referral code is required.'
@@ -218,8 +220,8 @@ export default function ReferralEmployerPage() {
         ? 'Use letters, numbers and dashes only.'
         : trimmedDraft.length < 4 || trimmedDraft.length > 16
           ? 'Code must be 4 to 16 characters.'
-          : codeTaken
-            ? 'This code is already used by another company.'
+          : conflict
+            ? conflictMessage(conflict)
             : null;
   const canSave = codeError === null && trimmedDraft !== referral.code;
 
@@ -236,6 +238,7 @@ export default function ReferralEmployerPage() {
     const joinDates = randomJoinDates(joiners.length, referral.newReferrals?.[0]?.dateJoin);
     updateReferral(company.id, {
       code: trimmedDraft,
+      retiredCodes: referral.code ? [...new Set([...(referral.retiredCodes ?? []), referral.code])] : referral.retiredCodes,
       newReferrals: [
         ...joiners.map((j, i) => ({ name: j.name, dateJoin: joinDates[i], codeUsed: trimmedDraft })),
         ...(referral.newReferrals ?? []),
@@ -373,6 +376,8 @@ export default function ReferralEmployerPage() {
                   </div>
                 </div>
 
+                <AssignedCodes company={company} referrals={referrals} onToast={showToast} />
+
                 <div className="re-commission">
                   <div className="re-commission-head">
                     <div>
@@ -415,7 +420,8 @@ export default function ReferralEmployerPage() {
                         <span>Amount</span>
                         <span>Items · Rate</span>
                         <span>Status</span>
-                        <span>Documents</span>
+                        <span>Invoice</span>
+                        <span>Statement</span>
                         <span className="re-commission-decided">Payment Details</span>
                       </div>
                       {commissionRequests.map((q) => (
@@ -433,10 +439,16 @@ export default function ReferralEmployerPage() {
                                   {q.status === 'Needs Revision' ? 'Re-upload Invoice' : 'Upload Invoice'}
                                 </button>
                               ) : q.invoice ? (
-                                <button className="re-invoice-link" onClick={() => openInvoice(q.invoice!.dataUrl)}>
+                                <button
+                                  className="re-invoice-link"
+                                  title={q.invoice.fileName}
+                                  onClick={() => openInvoice(q.invoice!.dataUrl)}
+                                >
                                   {q.invoice.fileName}
                                 </button>
                               ) : null}
+                            </span>
+                            <span className="re-commission-invoice">
                               <button
                                 className="re-invoice-link"
                                 onClick={() =>
@@ -518,7 +530,10 @@ export default function ReferralEmployerPage() {
                     <span className="re-cell">{r.industry}</span>
                     <span className="re-cell">{r.dateJoin}</span>
                     <span className="re-cell">
-                      <span className="rc-pill rc-pill-teal">{r.codeUsed}</span>
+                      <span className="re-code-cell">
+                        <span className="rc-pill rc-pill-teal">{r.codeUsed}</span>
+                        {assignedName(r.assignedId) && <small className="re-via">via {assignedName(r.assignedId)}</small>}
+                      </span>
                     </span>
                     <span className="re-cell re-spending-cell">
                       {formatRM(spendingOf(r, referral))}
@@ -615,7 +630,8 @@ export default function ReferralEmployerPage() {
               <h3 className="rc-modal-title">
                 {invoiceRequest.status === 'Needs Revision' ? 'Re-upload Invoice' : 'Upload Invoice'}
               </h3>
-              <button className="rc-modal-close" onClick={closeRequestModal} aria-label="Close">
+              <button className="rc-modal-close" onClick={() => (invoiceRequest.status === 'Awaiting Invoice' ? setConfirmCancel(true) : closeRequestModal())}
+                aria-label="Close">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <path d="M6 6l12 12M18 6L6 18" />
                 </svg>
