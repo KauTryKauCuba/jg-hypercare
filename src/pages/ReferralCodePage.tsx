@@ -294,7 +294,7 @@ export default function ReferralCodePage() {
                 <span>Rate</span>
                 <span>Requested On</span>
                 <span>Invoice</span>
-                <span>Statement</span>
+                <span>Commission Advice</span>
                 <span className="center">Status</span>
                 <span className="center">Action</span>
               </div>
@@ -362,7 +362,7 @@ export default function ReferralCodePage() {
                           <path d="M14 2v6h6" />
                           <path d="M8 13h8M8 17h5" />
                         </svg>
-                        <span>Statement.pdf</span>
+                        <span>Commission Advice.pdf</span>
                       </button>
                     </span>
                     <div className="center">

@@ -421,7 +421,7 @@ export default function ReferralEmployerPage() {
                         <span>Items · Rate</span>
                         <span>Status</span>
                         <span>Invoice</span>
-                        <span>Statement</span>
+                        <span>Commission Advice</span>
                         <span className="re-commission-decided">Payment Details</span>
                       </div>
                       {commissionRequests.map((q) => (
@@ -460,7 +460,7 @@ export default function ReferralEmployerPage() {
                                   })
                                 }
                               >
-                                Statement.pdf
+                                Commission Advice.pdf
                               </button>
                             </span>
                             <span className="re-commission-decided">

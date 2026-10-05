@@ -51,6 +51,12 @@ export default function HomePage() {
         <div className="evaluation-card" onClick={() => navigate('/referral-code-employer')} style={{ cursor: 'pointer', margin: 0 }}>
           <h2>referral code employer</h2>
         </div>
+        <div className="evaluation-card" onClick={() => navigate('/jobseeker-onboarding')} style={{ cursor: 'pointer', margin: 0 }}>
+          <h2>jobseeker onboarding</h2>
+        </div>
+        <div className="evaluation-card" onClick={() => navigate('/jobseeker-dashboard')} style={{ cursor: 'pointer', margin: 0 }}>
+          <h2>jobseeker dashboard</h2>
+        </div>
       </div>
     </div>
   );

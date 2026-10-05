@@ -12,7 +12,7 @@ import {
   monthsOf,
   requestableCommissions,
 } from '../data/referrals';
-import { updateReferral, useReferrals } from '../store/referralStore';
+import { claimAdviceNo, updateReferral, useReferrals } from '../store/referralStore';
 
 export default function ReferralRequestCommissionPage() {
   const navigate = useNavigate();
@@ -87,6 +87,7 @@ export default function ReferralRequestCommissionPage() {
       commissionRequests: [
         {
           id,
+          adviceNo: claimAdviceNo(),
           amount: selectedAmount,
           rate,
           requestedAt: formatDate(new Date()),

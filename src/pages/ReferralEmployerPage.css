@@ -1180,7 +1180,7 @@ label.re-breakdown-row {
   text-overflow: ellipsis;
 }
 
-/* Invoice shows the uploaded file name (cut with an ellipsis if long); the Statement label is never cut */
+/* Invoice shows the uploaded file name (cut with an ellipsis if long); the Commission Advice label is never cut */
 .rc-layout .re-commission-invoice .re-invoice-link {
   flex-shrink: 1;
   min-width: 0;

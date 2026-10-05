@@ -154,7 +154,7 @@ export const formatDate = (date: Date) => {
   return `${d}${suffix} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
 };
 
-const parseDate = (value: string) => {
+export const parseDate = (value: string) => {
   const [day, month, year] = value.split(' ');
   return new Date(Number(year), MONTHS.indexOf(month), parseInt(day, 10));
 };

@@ -14,6 +14,8 @@ import ReferralCodePage from './pages/ReferralCodePage'
 import ReferralEmployerPage from './pages/ReferralEmployerPage'
 import ReferralCompaniesPage from './pages/ReferralCompaniesPage'
 import ReferralRequestCommissionPage from './pages/ReferralRequestCommissionPage'
+import JobseekerOnboardingPage from './pages/JobseekerOnboardingPage'
+import JobseekerDashboardPage from './pages/JobseekerDashboardPage'
 
 function App() {
   return (
@@ -33,6 +35,8 @@ function App() {
         <Route path="/referral-code/:companyId" element={<ReferralCompaniesPage />} />
         <Route path="/referral-code-employer" element={<ReferralEmployerPage />} />
         <Route path="/referral-code-employer/request-commission" element={<ReferralRequestCommissionPage />} />
+        <Route path="/jobseeker-onboarding" element={<JobseekerOnboardingPage />} />
+        <Route path="/jobseeker-dashboard" element={<JobseekerDashboardPage />} />
       </Routes>
     </BrowserRouter>
   )
