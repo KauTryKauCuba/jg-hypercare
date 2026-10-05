@@ -90,6 +90,12 @@ const JOBGIGA = {
 // No user accounts are stored yet, so every request is shown as made by this partner admin.
 const PARTNER_ADMIN = 'Ahmad Yusuf';
 
+// The superadmin who approves requests (no user accounts are stored yet).
+const VERIFIER = 'Siti Amirah';
+
+// Dummy company registration number until real ones are stored per partner.
+const PARTNER_REG_NO = '202401012345 (1234567-X)';
+
 // Each request has exactly one advice, so both share the same running number: CR-000001 / CA-000001.
 const runningNo = (request: CommissionRequest) => String(request.adviceNo ?? 0).padStart(6, '0');
 export const requestNo = (request: CommissionRequest) => `CR-${runningNo(request)}`;
@@ -206,7 +212,10 @@ async function buildStatement({ employerName, referralCode, request, lines }: St
   const codeLabel = codes.length > 1 ? 'referral codes' : 'referral code';
   const rate = `${request.rate}%`;
   const status = adviceStatus(request);
-  const verifiedOn = request.requestedAt;
+  // Once the superadmin approves, the advice is verified by them on the approval date.
+  const approved = (request.status === 'Approved' || request.status === 'Paid') && !!request.decidedAt;
+  const verifiedOn = approved ? request.decidedAt! : request.requestedAt;
+  const verifiedBy = approved ? VERIFIER : 'JobGiga';
 
   const lastTableY = () => (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
   const ensureSpace = (y: number, needed: number) => {
@@ -295,7 +304,9 @@ async function buildStatement({ employerName, referralCode, request, lines }: St
     [
       { text: 'This advice confirms the commission ' },
       { text: employerName, highlight: true },
-      { text: ` is entitled to for the sales invoices below. They were requested by your admin user, matched to your ${codeLabel} ` },
+      { text: ' is entitled to for the sales invoices below. They were requested by ' },
+      { text: PARTNER_ADMIN, highlight: true },
+      { text: `, matched to your ${codeLabel} ` },
       { text: code, highlight: true },
       { text: ', and verified by JobGiga after each customer payment was confirmed.' },
     ],
@@ -313,7 +324,7 @@ async function buildStatement({ employerName, referralCode, request, lines }: St
   const leftEnd = keyValues(
     [
       ['Channel partner', employerName],
-      ['Company reg. no.', '-'],
+      ['Company reg. no.', PARTNER_REG_NO],
       [codes.length > 1 ? 'Referral codes' : 'Referral code', code],
       // The agreement date is the 28th of the month the request was made.
       ['Agreement ref.', `28th ${monthOf(request.requestedAt)}`],
@@ -327,7 +338,7 @@ async function buildStatement({ employerName, referralCode, request, lines }: St
     [
       ['Request no.', requestNo(request)],
       ['Requested by', `${PARTNER_ADMIN}, ${request.requestedAt}`],
-      ['Verified by', `JobGiga, ${verifiedOn}`],
+      ['Verified by', `${verifiedBy}, ${verifiedOn}`],
       ['Commission rate', rate],
     ],
     colX,
