@@ -18,7 +18,7 @@ import {
   formatRM,
   codeConflict,
   conflictMessage,
-  lineCommission,
+  lineCommissionAmount,
   lineCommissionStatus,
   purchaseLinesOf,
   purchaseSummary,
@@ -100,6 +100,12 @@ export default function ReferralEmployerPage() {
   const assignedName = (id?: string) => (id ? referral.assignedCodes?.find((a) => a.id === id)?.name : undefined);
   const commission = commissionSummary(company.id, referral);
   const commissionRequests = referral.commissionRequests ?? [];
+  // The effective rate "Commission Earned" was actually made at. Companies can be frozen at different
+  // rates if the employer's rate changed between them, so this is worked out from the real totals rather
+  // than just reading the employer's current rate, which would misstate it whenever that happens.
+  const totalReferredSpending = referred.reduce((sum, r) => sum + spendingOf(r, referral), 0);
+  const effectiveEarnedRate =
+    totalReferredSpending > 0 ? Math.round((commission.earned / totalReferredSpending) * 10000) / 100 : null;
 
   const copy = async (text: string, which: 'code' | 'link') => {
     try {
@@ -240,7 +246,9 @@ export default function ReferralEmployerPage() {
       code: trimmedDraft,
       retiredCodes: referral.code ? [...new Set([...(referral.retiredCodes ?? []), referral.code])] : referral.retiredCodes,
       newReferrals: [
-        ...joiners.map((j, i) => ({ name: j.name, dateJoin: joinDates[i], codeUsed: trimmedDraft })),
+        // Freeze today's commission rate onto each joiner, so a later rate change never reaches back
+        // and changes what a company already referred is worth.
+        ...joiners.map((j, i) => ({ name: j.name, dateJoin: joinDates[i], codeUsed: trimmedDraft, rateUsed: referral.commission ?? 0 })),
         ...(referral.newReferrals ?? []),
       ],
       addonPurchases: purchase
@@ -365,7 +373,10 @@ export default function ReferralEmployerPage() {
                       <div className="re-tracker-card amber">
                         <span className="re-tracker-label">Commission Earned</span>
                         <span className="re-tracker-value re-tracker-money">{formatRM(commission.earned)}</span>
-                        <span className="re-tracker-sub">{referral.commission ?? 0}% of referral spending</span>
+                        <span className="re-tracker-sub">
+                          {effectiveEarnedRate !== null ? `${effectiveEarnedRate}%` : `${referral.commission ?? 0}%`} of referral
+                          spending
+                        </span>
                       </div>
                       <div className="re-tracker-card purple">
                         <span className="re-tracker-label">Latest Referred</span>
@@ -577,7 +588,9 @@ export default function ReferralEmployerPage() {
                         <span>Date</span>
                         <span>Price × Qty</span>
                         <span className="re-num">Amount</span>
-                        <span className="re-num">Commission ({referral.commission ?? 0}%)</span>
+                        {/* No single % here: each purchase can be frozen at the rate that applied when it
+                            joined or was bought, so the rate is shown per row instead, where it's always accurate. */}
+                        <span className="re-num">Commission</span>
                         <span>Status</span>
                       </div>
                       {purchases.map((line) => {
@@ -592,7 +605,8 @@ export default function ReferralEmployerPage() {
                             <span className="re-muted">{line.detail}</span>
                             <span className="re-num">{formatRM(line.amount)}</span>
                             <span className="re-num re-commission-cell">
-                              {formatRM(lineCommission(line.amount, referral.commission ?? 0))}
+                              {formatRM(lineCommissionAmount(line, referral))}
+                              <small>{line.rate}%</small>
                             </span>
                             <span>
                               <span className={`rc-status-pill rc-status-sm ${statusSlug(status)}`}>{status}</span>

@@ -17,6 +17,9 @@ export type StatementLine = {
   paymentDate: string;
   spending: number;
   commission: number;
+  // The rate this specific line was frozen at - can differ row to row if the customers joined under
+  // different rate periods, so it is never assumed to match the request's blended rate.
+  rate: number;
 };
 
 // Numbers every purchase across all employers, so each sales invoice number is unique system-wide.
@@ -63,6 +66,7 @@ export const statementLinesFor = (
       paymentDate: line?.date ?? '-',
       spending: line?.amount ?? 0,
       commission: item.amount,
+      rate: line?.rate ?? request.rate,
     };
   });
 };
@@ -210,7 +214,12 @@ async function buildStatement({ employerName, referralCode, request, lines }: St
   const codes = usedCodes.length > 0 ? usedCodes : referralCode ? [referralCode] : [];
   const code = codes.length > 0 ? codes.join(', ') : '-';
   const codeLabel = codes.length > 1 ? 'referral codes' : 'referral code';
-  const rate = `${request.rate}%`;
+  // Each sales invoice can be frozen at its own rate (whatever applied when that customer joined), so
+  // the single "Commission rate" field only shows a number when every line actually shares one; a mixed
+  // request shows the true range instead of a misleading blended figure.
+  const lineRates = [...new Set(lines.map((l) => l.rate))].sort((a, b) => a - b);
+  const uniformRate = lineRates.length === 1 ? lineRates[0] : null;
+  const rate = uniformRate !== null ? `${uniformRate}%` : lineRates.map((r) => `${r}%`).join(' / ');
   const status = adviceStatus(request);
   // Once the superadmin approves, the advice is verified by them on the approval date.
   const approved = (request.status === 'Approved' || request.status === 'Paid') && !!request.decidedAt;
@@ -339,7 +348,7 @@ async function buildStatement({ employerName, referralCode, request, lines }: St
       ['Request no.', requestNo(request)],
       ['Requested by', `${PARTNER_ADMIN}, ${request.requestedAt}`],
       ['Verified by', `${verifiedBy}, ${verifiedOn}`],
-      ['Commission rate', rate],
+      [lineRates.length > 1 ? 'Commission rates' : 'Commission rate', rate],
     ],
     colX,
     y + 18,
@@ -365,7 +374,7 @@ async function buildStatement({ employerName, referralCode, request, lines }: St
       l.purchased,
       l.paymentDate,
       money(l.spending),
-      rate,
+      `${l.rate}%`,
       money(l.commission),
     ]),
     foot: [[{ content: 'Total', colSpan: 5 }, money(totalPaid), '', money(totalCommission)]],
@@ -407,7 +416,9 @@ async function buildStatement({ employerName, referralCode, request, lines }: St
   doc.setTextColor(...MUTED);
   doc.text(
     doc.splitTextToSize(
-      `Commission = ${rate} x amount paid by the customer, excluding SST. Calculated per sales invoice after payment is confirmed and rounded to the nearest sen.`,
+      uniformRate !== null
+        ? `Commission = ${rate} x amount paid by the customer, excluding SST. Calculated per sales invoice after payment is confirmed and rounded to the nearest sen.`
+        : `Commission = each sales invoice's own rate (see table above) x amount paid by the customer, excluding SST. Calculated per sales invoice after payment is confirmed and rounded to the nearest sen.`,
       contentWidth / 2 - 10,
     ),
     margin,
@@ -420,7 +431,7 @@ async function buildStatement({ employerName, referralCode, request, lines }: St
     tableWidth: boxWidth,
     body: [
       ['Total amount paid (excl. SST)', formatRM(totalPaid)],
-      [`Commission entitlement (${rate})`, formatRM(request.amount)],
+      [uniformRate !== null ? `Commission entitlement (${rate})` : 'Commission entitlement', formatRM(request.amount)],
     ],
     theme: 'plain',
     styles: { font: 'helvetica', fontSize: 9.5, cellPadding: 6, textColor: DARK, lineColor: LINE, lineWidth: { bottom: 0.5 } },

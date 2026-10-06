@@ -2,7 +2,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import './ReferralCompaniesPage.css';
 import SuperadminShell from '../components/SuperadminShell';
 import { COMPANIES, initials } from '../data/companies';
-import { formatRM, getReferredCompanies, spendingBreakdown, spendingOf } from '../data/referrals';
+import { formatRM, getReferredCompanies, parseDate, spendingBreakdown, spendingOf } from '../data/referrals';
 import { useReferrals } from '../store/referralStore';
 
 export default function ReferralCompaniesPage() {
@@ -34,6 +34,23 @@ export default function ReferralCompaniesPage() {
 
   const referral = referrals[owner.id];
   const joined = getReferredCompanies(owner.id, referral);
+
+  // Companies are grouped by the code they actually joined with, each showing the rate that code
+  // earned - a company's own rate never moves even if the employer's rate changes later, so a company
+  // that joined under an older code must never be shown under today's code's percentage.
+  const byCode = new Map<string, typeof joined>();
+  for (const r of joined) byCode.set(r.codeUsed, [...(byCode.get(r.codeUsed) ?? []), r]);
+  const groups = [...byCode.entries()]
+    .map(([code, companies]) => ({
+      code,
+      rate: companies[0].rateUsed ?? referral.commission ?? 0,
+      isCurrent: referral.active && code === referral.code,
+      latest: Math.max(...companies.map((r) => parseDate(r.dateJoin).getTime())),
+      companies,
+      totalSpending: companies.reduce((sum, r) => sum + spendingOf(r, referral), 0),
+    }))
+    // The code in use right now first, then older codes newest first.
+    .sort((a, b) => Number(b.isCurrent) - Number(a.isCurrent) || b.latest - a.latest);
 
   return (
     <SuperadminShell>
@@ -87,42 +104,54 @@ export default function ReferralCompaniesPage() {
           {joined.length === 0 ? (
             <div className="rcp-empty">No companies have joined using {owner.name}'s referral code yet.</div>
           ) : (
-            joined.map((r) => (
-              <div key={r.name} className="rc-row rcp-grid rcp-row">
-                <div className="rc-company">
-                  <div className="rc-company-logo">
-                    {r.logo ? (
-                      <img src={r.logo} alt="" className="rcp-row-logo" />
-                    ) : (
-                      <span className="rc-company-initials">{initials(r.name)}</span>
-                    )}
-                  </div>
-                  <div className="rc-company-info">
-                    <span className="rc-company-name">{r.name}</span>
-                    <span className="rc-company-meta">{r.meta}</span>
-                  </div>
+            groups.map((g) => (
+              <div key={g.code}>
+                <div className="rcp-group-head">
+                  <span className="rcp-group-title">
+                    Code <span className="rc-pill rc-pill-teal">{g.code}</span> · earns {g.rate}%
+                  </span>
+                  <span className="rcp-group-total">
+                    {g.companies.length} {g.companies.length === 1 ? 'company' : 'companies'} · {formatRM(g.totalSpending)}
+                  </span>
                 </div>
-                <span className="rcp-center">
-                  <span className={`rc-pill ${r.verified ? 'rc-pill-teal' : 'rc-pill-muted'}`}>
-                    {r.verified ? 'Verified' : 'Unverified'}
-                  </span>
-                </span>
-                <span className="rcp-cell">{r.industry}</span>
-                <span className="rcp-cell">{r.dateJoin}</span>
-                <span className="rcp-cell">
-                  <span className="rc-pill rc-pill-teal">{r.codeUsed}</span>
-                </span>
-                <span className="rcp-cell">{r.location}</span>
-                <span className="rcp-center">
-                  <span className="rcp-plan">
-                    <span className="rc-pill rc-pill-teal">{r.plan}</span>
-                    {r.billing && <span className="rcp-sub-text">{r.billing}</span>}
-                  </span>
-                </span>
-                <span className="rcp-spending">
-                  <span className="rcp-spending-total">{formatRM(spendingOf(r, referral))}</span>
-                  <span className="rcp-sub-text">{spendingBreakdown(r, referral)}</span>
-                </span>
+                {g.companies.map((r) => (
+                  <div key={r.name} className="rc-row rcp-grid rcp-row">
+                    <div className="rc-company">
+                      <div className="rc-company-logo">
+                        {r.logo ? (
+                          <img src={r.logo} alt="" className="rcp-row-logo" />
+                        ) : (
+                          <span className="rc-company-initials">{initials(r.name)}</span>
+                        )}
+                      </div>
+                      <div className="rc-company-info">
+                        <span className="rc-company-name">{r.name}</span>
+                        <span className="rc-company-meta">{r.meta}</span>
+                      </div>
+                    </div>
+                    <span className="rcp-center">
+                      <span className={`rc-pill ${r.verified ? 'rc-pill-teal' : 'rc-pill-muted'}`}>
+                        {r.verified ? 'Verified' : 'Unverified'}
+                      </span>
+                    </span>
+                    <span className="rcp-cell">{r.industry}</span>
+                    <span className="rcp-cell">{r.dateJoin}</span>
+                    <span className="rcp-cell">
+                      <span className="rc-pill rc-pill-teal">{r.codeUsed}</span>
+                    </span>
+                    <span className="rcp-cell">{r.location}</span>
+                    <span className="rcp-center">
+                      <span className="rcp-plan">
+                        <span className="rc-pill rc-pill-teal">{r.plan}</span>
+                        {r.billing && <span className="rcp-sub-text">{r.billing}</span>}
+                      </span>
+                    </span>
+                    <span className="rcp-spending">
+                      <span className="rcp-spending-total">{formatRM(spendingOf(r, referral))}</span>
+                      <span className="rcp-sub-text">{spendingBreakdown(r, referral)}</span>
+                    </span>
+                  </div>
+                ))}
               </div>
             ))
           )}

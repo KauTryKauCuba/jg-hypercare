@@ -10,6 +10,7 @@ import {
   formatRM,
   monthOf,
   monthsOf,
+  parseDate,
   requestableCommissions,
 } from '../data/referrals';
 import { claimAdviceNo, updateReferral, useReferrals } from '../store/referralStore';
@@ -32,27 +33,48 @@ export default function ReferralRequestCommissionPage() {
   const selectedRows = visible.filter((row) => selectedIds.includes(row.line.id));
   const selectedSpending = selectedRows.reduce((sum, row) => sum + row.line.amount, 0);
   const selectedAmount = Math.round(selectedRows.reduce((sum, row) => sum + row.amount, 0) * 100) / 100;
+  // Rows can be frozen at different rates (different companies joined at different times), so the
+  // "effective" rate is worked out from the real totals rather than assumed from the employer's live rate.
+  const effectiveRate = (rows: typeof visible, spending: number, amount: number) => {
+    const rates = new Set(rows.map((row) => row.line.rate));
+    if (rates.size === 1) return [...rates][0];
+    return spending > 0 ? Math.round((amount / spending) * 10000) / 100 : rate;
+  };
+  // What to actually show for "Commission rate": each distinct rate involved, highest first, rather
+  // than one blended number that no single row is really earning.
+  const rateLabel = (rows: typeof visible) => {
+    const rates = [...new Set(rows.map((row) => row.line.rate))].sort((a, b) => b - a);
+    return rates.length > 0 ? rates.map((r) => `${r}%`).join(' / ') : `${rate}%`;
+  };
+  const visibleRate = effectiveRate(visible, visible.reduce((s, r) => s + r.line.amount, 0), visible.reduce((s, r) => s + r.amount, 0));
+  const selectedRate = effectiveRate(selectedRows, selectedSpending, selectedAmount);
   const allSelected = visible.length > 0 && selectedRows.length === visible.length;
   const selectedCompanies = new Set(selectedRows.map((row) => row.company.name)).size;
 
-  // Purchases are grouped by where the company came from: the main code, or a code assigned to someone.
+  // Purchases are grouped by the exact code each company joined with, not just "the main code" vs
+  // "an assigned code" - a company's code can have been replaced since, and each code carries its own
+  // frozen rate, so lumping VAD-0002 purchases under today's VAD-0004 label would show the wrong rate.
   const assignedCodes = referral.assignedCodes ?? [];
-  const groups = [
-    { id: 'main', title: 'Your referral code', sub: `${referral.code ?? ''} · earns ${rate}%`, assigned: undefined },
-    ...assignedCodes.map((a) => ({
-      id: a.id,
-      title: `Assigned to ${a.name}`,
-      sub: `${a.code} · earns ${rate}%`,
-      assigned: a,
-    })),
-  ]
-    .map((g) => ({
-      ...g,
-      rows: visible.filter((row) =>
-        g.assigned ? row.company.assignedId === g.assigned.id : !assignedCodes.some((a) => a.id === row.company.assignedId),
-      ),
-    }))
-    .filter((g) => g.rows.length > 0);
+  const byCode = new Map<string, typeof visible>();
+  for (const row of visible) {
+    const key = row.company.codeUsed;
+    byCode.set(key, [...(byCode.get(key) ?? []), row]);
+  }
+  const groups = [...byCode.entries()]
+    .map(([code, rows]) => {
+      const assigned = assignedCodes.find((a) => a.id === rows[0].company.assignedId);
+      return {
+        id: code,
+        title: assigned ? `Assigned to ${assigned.name}` : 'Your referral code',
+        sub: `${code} · earns ${rows[0].line.rate}%`,
+        assigned,
+        isCurrent: !assigned && code === referral.code,
+        latest: Math.max(...rows.map((row) => parseDate(row.line.date).getTime())),
+        rows,
+      };
+    })
+    // The code in use right now first, then other past codes newest first, main codes before assigned ones.
+    .sort((a, b) => Number(b.isCurrent) - Number(a.isCurrent) || Number(!a.assigned) - Number(!b.assigned) || b.latest - a.latest);
   const sumCommission = (rows: typeof visible) => Math.round(rows.reduce((sum, row) => sum + row.amount, 0) * 100) / 100;
   const selectedViaAssigned = selectedRows.filter((row) => assignedCodes.some((a) => a.id === row.company.assignedId));
   const selectedViaMain = selectedRows.filter((row) => !selectedViaAssigned.includes(row));
@@ -89,7 +111,7 @@ export default function ReferralRequestCommissionPage() {
           id,
           adviceNo: claimAdviceNo(),
           amount: selectedAmount,
-          rate,
+          rate: selectedRate,
           requestedAt: formatDate(new Date()),
           status: 'Awaiting Invoice',
           items: selectedRows.map((row) => ({
@@ -151,7 +173,7 @@ export default function ReferralRequestCommissionPage() {
                   />
                 </div>
                 <span className="rq-toolbar-note">
-                  {visible.length} {visible.length === 1 ? 'purchase' : 'purchases'} available · {rate}% commission
+                  {visible.length} {visible.length === 1 ? 'purchase' : 'purchases'} available · {visibleRate}% commission
                 </span>
               </div>
 
@@ -168,7 +190,8 @@ export default function ReferralRequestCommissionPage() {
                 <span>Date</span>
                 <span>Price × Qty</span>
                 <span className="re-num">Spending</span>
-                <span className="re-num">Commission ({rate}%)</span>
+                {/* No single % here: groups below can be frozen at different rates (each shows its own). */}
+                <span className="re-num">Commission</span>
               </div>
 
               {groups.map((g) => {
@@ -264,7 +287,7 @@ export default function ReferralRequestCommissionPage() {
               </div>
               <div className="rq-summary-line">
                 <span>Commission rate</span>
-                <b>{rate}%</b>
+                <b>{selectedRows.length > 0 ? rateLabel(selectedRows) : `${rate}%`}</b>
               </div>
               <div className="rq-summary-total">
                 <span>Amount to request</span>

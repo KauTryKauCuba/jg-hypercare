@@ -14,6 +14,10 @@ export type JoinedCompany = {
   codeUsed: string;
   // Set when the company joined through a code VADS assigned to someone, not the main code.
   assignedId?: string;
+  // The employer's commission rate at the moment this company joined. Frozen forever, so a later rate
+  // change never reaches back and changes what an existing company is worth. Older saved data may not
+  // have this; readers fall back to the employer's current rate for those.
+  rateUsed?: number;
 };
 
 // A code the employer hands to a specific person, who earns the employer's commission rate on every company it brings in.

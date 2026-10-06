@@ -18,6 +18,8 @@ export type ReferredCompany = {
   location: string;
   codeUsed: string;
   assignedId?: string;
+  // The commission rate frozen at join time; see JoinedCompany.rateUsed.
+  rateUsed?: number;
   verified: boolean;
   plan: Plan;
   billing?: Billing;
@@ -52,7 +54,9 @@ export const getReferredCompanies = (companyId: string, referral: ReferralState)
   const catalogue = [...(REFERRED_BY[companyId] ?? []), ...NEW_JOINER_POOL];
   return (referral.newReferrals ?? []).flatMap((r) => {
     const details = catalogue.find((c) => c.name === r.name);
-    return details ? [{ ...details, dateJoin: r.dateJoin, codeUsed: r.codeUsed, assignedId: r.assignedId }] : [];
+    return details
+      ? [{ ...details, dateJoin: r.dateJoin, codeUsed: r.codeUsed, assignedId: r.assignedId, rateUsed: r.rateUsed }]
+      : [];
   });
 };
 
@@ -92,6 +96,9 @@ export type PurchaseLine = {
   detail: string;
   amount: number;
   date: string;
+  // The commission rate this specific line is worth, frozen at join/purchase time (falls back to the
+  // employer's live rate for a line saved before rates were tracked per line).
+  rate: number;
 };
 
 const planSpending = (r: ReferredCompany) =>
@@ -105,6 +112,10 @@ const planBreakdown = (r: ReferredCompany) => {
 };
 
 export const purchaseLinesOf = (r: ReferredCompany, referral: ReferralState): PurchaseLine[] => {
+  // A company earns one rate for its entire lifetime: whatever was in force when it joined. Everything
+  // it ever buys afterwards, plans and add-ons alike, stays at that same rate - it's never re-evaluated
+  // per purchase, so one company can never show two different rates.
+  const rate = r.rateUsed ?? referral.commission ?? 0;
   const lines: PurchaseLine[] = [];
   if (planSpending(r) > 0) {
     lines.push({
@@ -115,6 +126,7 @@ export const purchaseLinesOf = (r: ReferredCompany, referral: ReferralState): Pu
       detail: planBreakdown(r),
       amount: planSpending(r),
       date: r.dateJoin,
+      rate,
     });
   }
   for (const p of referral.addonPurchases ?? []) {
@@ -128,6 +140,7 @@ export const purchaseLinesOf = (r: ReferredCompany, referral: ReferralState): Pu
       detail: `${formatRM(addon.price)} × 1 (${addon.unit})`,
       amount: addon.price,
       date: p.date,
+      rate,
     });
   }
   return lines;
@@ -224,11 +237,6 @@ export const assigneeStats = (
 
 export const lineCommission = (amount: number, rate: number) => Math.round(amount * rate) / 100;
 
-export const commissionOf = (r: ReferredCompany, referral: ReferralState) =>
-  Math.round(
-    purchaseLinesOf(r, referral).reduce((sum, l) => sum + lineCommission(l.amount, referral.commission ?? 0), 0) * 100,
-  ) / 100;
-
 const OPEN_STATUSES = ['Awaiting Invoice', 'In Review', 'Needs Revision', 'Approved', 'Paid'];
 const IN_PROGRESS_STATUSES = ['Awaiting Invoice', 'In Review', 'Needs Revision'];
 
@@ -242,17 +250,30 @@ const claimedByLine = (referral: ReferralState) => {
   return claimed;
 };
 
+// The commission for this line: whatever was actually claimed for it (frozen at the rate in force
+// then), or its own rate (frozen at the moment this company joined / this add-on was bought) while it
+// has never been claimed. Changing the employer's rate later must never reach back and change what an
+// existing company or purchase is worth.
+export const lineCommissionAmount = (line: PurchaseLine, referral: ReferralState) => {
+  const claimed = claimedByLine(referral).get(line.id);
+  return claimed !== undefined ? claimed : lineCommission(line.amount, line.rate);
+};
+
+// A company's total commission, built the same way: claimed lines keep their claimed amount, unclaimed
+// lines use their own frozen rate.
+export const commissionOf = (r: ReferredCompany, referral: ReferralState) =>
+  Math.round(purchaseLinesOf(r, referral).reduce((sum, l) => sum + lineCommissionAmount(l, referral), 0) * 100) / 100;
+
 export type RequestableLine = { line: PurchaseLine; company: ReferredCompany; amount: number };
 
 export const requestableCommissions = (companyId: string, referral: ReferralState): RequestableLine[] => {
   const claimed = claimedByLine(referral);
-  const rate = referral.commission ?? 0;
   return getReferredCompanies(companyId, referral).flatMap((company) =>
     purchaseLinesOf(company, referral)
       .map((line) => ({
         line,
         company,
-        amount: Math.round((lineCommission(line.amount, rate) - (claimed.get(line.id) ?? 0)) * 100) / 100,
+        amount: Math.round((lineCommission(line.amount, line.rate) - (claimed.get(line.id) ?? 0)) * 100) / 100,
       }))
       .filter((row) => row.amount > 0),
   );

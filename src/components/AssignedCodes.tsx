@@ -103,7 +103,11 @@ export default function AssignedCodes({
     if (!joiner) return { newReferrals: referral.newReferrals, joiner: undefined };
     const [dateJoin] = randomJoinDates(1, referral.newReferrals?.[0]?.dateJoin);
     return {
-      newReferrals: [{ name: joiner.name, dateJoin, codeUsed, assignedId }, ...(referral.newReferrals ?? [])],
+      // Freeze today's commission rate onto the joiner, same as the main code; see JoinedCompany.rateUsed.
+      newReferrals: [
+        { name: joiner.name, dateJoin, codeUsed, assignedId, rateUsed: referral.commission ?? 0 },
+        ...(referral.newReferrals ?? []),
+      ],
       joiner,
     };
   };
