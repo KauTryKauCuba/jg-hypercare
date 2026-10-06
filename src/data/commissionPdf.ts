@@ -2,7 +2,7 @@ import jobgigaLogo from '../assets/referral/jobgiga-logo.png';
 import { assignSalesInvoiceNos, getReferralsSnapshot } from '../store/referralStore';
 import type { CommissionRequest, ReferralState } from '../store/referralStore';
 import { COMPANIES } from './companies';
-import { formatDate, formatRM, getReferredCompanies, monthOf, parseDate, purchaseLinesOf } from './referrals';
+import { formatDate, formatRM, getReferredCompanies, parseDate, purchaseLinesOf } from './referrals';
 
 export type StatementLine = {
   lineId: string;
@@ -87,7 +87,11 @@ const JOBGIGA = {
   name: 'JobGiga Sdn. Bhd.',
   regNo: '202501055580 (1656986-T)',
   sstNo: 'N/A',
-  address: ['11, Jalan IMP 1/1, Taman Industri Meranti Perdana', '47120 Puchong Selangor'],
+  address: [
+    'G01-G05A, Ground Floor, CoPlace 8,',
+    'Block 2310, Century Square, Jalan Usahawan,',
+    'Cyber 6, 63000 Cyberjaya, Selangor Darul Ehsan.',
+  ],
   email: 'sales@jobgiga.com',
 };
 
@@ -105,8 +109,13 @@ const runningNo = (request: CommissionRequest) => String(request.adviceNo ?? 0).
 export const requestNo = (request: CommissionRequest) => `CR-${runningNo(request)}`;
 export const adviceNo = (request: CommissionRequest) => `CA-${runningNo(request)}`;
 
-// Every request is verified when it is made; only a rejected one loses that status.
-const adviceStatus = (request: CommissionRequest) => (request.status === 'Rejected' ? 'REJECTED' : 'VERIFIED');
+// A request stays REQUEST (not yet verified) until the superadmin approves it; only then does the
+// advice become VERIFIED. A rejected request shows REJECTED instead.
+const adviceStatus = (request: CommissionRequest) => {
+  if (request.status === 'Rejected') return 'REJECTED';
+  if ((request.status === 'Approved' || request.status === 'Paid') && request.decidedAt) return 'VERIFIED';
+  return 'REQUEST';
+};
 
 const ONES = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve',
   'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
@@ -225,6 +234,7 @@ async function buildStatement({ employerName, referralCode, request, lines }: St
   const approved = (request.status === 'Approved' || request.status === 'Paid') && !!request.decidedAt;
   const verifiedOn = approved ? request.decidedAt! : request.requestedAt;
   const verifiedBy = approved ? VERIFIER : 'JobGiga';
+  const verifiedOnLabel = approved ? 'Verified on' : 'Requested on';
 
   const lastTableY = () => (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
   const ensureSpace = (y: number, needed: number) => {
@@ -293,7 +303,7 @@ async function buildStatement({ employerName, referralCode, request, lines }: St
     [
       ['Advice no.', adviceNo(request)],
       ['Status', status],
-      ['Verified on', verifiedOn],
+      [verifiedOnLabel, verifiedOn],
       ['Currency', 'RM'],
     ],
     pageWidth - margin - 200,
@@ -336,7 +346,7 @@ async function buildStatement({ employerName, referralCode, request, lines }: St
       ['Company reg. no.', PARTNER_REG_NO],
       [codes.length > 1 ? 'Referral codes' : 'Referral code', code],
       // The agreement date is the 28th of the month the request was made.
-      ['Agreement ref.', `28th ${monthOf(request.requestedAt)}`],
+      ['Agreement ref.', '-'],
     ],
     margin,
     y + 18,
@@ -347,7 +357,7 @@ async function buildStatement({ employerName, referralCode, request, lines }: St
     [
       ['Request no.', requestNo(request)],
       ['Requested by', `${PARTNER_ADMIN}, ${request.requestedAt}`],
-      ['Verified by', `${verifiedBy}, ${verifiedOn}`],
+      ['Verified by', approved ? `${verifiedBy}, ${verifiedOn}` : 'Pending verification'],
       [lineRates.length > 1 ? 'Commission rates' : 'Commission rate', rate],
     ],
     colX,
