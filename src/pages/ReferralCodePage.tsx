@@ -14,6 +14,9 @@ import {
 import { downloadCommissionStatement, statementLinesFor, viewCommissionStatement } from '../data/commissionPdf';
 import {
   resetReferrals,
+  saveCommissionRates,
+  useCommissionRates,
+  DEFAULT_COMMISSION_RATES,
   updateReferral,
   useReferrals,
   type CommissionRequest,
@@ -36,7 +39,6 @@ const TABS = [
 
 const FILTERS = ['Job Title', 'Work Arrangement', 'Location'];
 
-const COMMISSION_RATES = [15, 20, 25];
 
 // Codes run in activation order: VAD-0001 for the first company switched on, then NEX-0002, and so on.
 const generateCode = (name: string, referrals: ReferralMap) => {
@@ -219,6 +221,24 @@ export default function ReferralCodePage() {
   };
   const [modalIndex, setModalIndex] = useState<number | null>(null);
   const [selectedRate, setSelectedRate] = useState<number | null>(null);
+  const commissionRates = useCommissionRates();
+  const [ratesDraft, setRatesDraft] = useState<string[] | null>(null);
+  const ratesError = (() => {
+    if (!ratesDraft) return null;
+    const nums = ratesDraft.map((r) => Number(r));
+    if (ratesDraft.some((r) => r.trim() === '' || !/^\d+(\.\d{1,2})?$/.test(r.trim()))) return 'Enter a number for each rate (up to 2 decimals).';
+    if (nums.some((n) => n <= 0 || n > 100)) return 'Each rate must be more than 0% and at most 100%.';
+    if (new Set(nums).size !== nums.length) return 'The three rates must be different.';
+    return null;
+  })();
+  const saveRates = () => {
+    if (!ratesDraft || ratesError) return;
+    const next = ratesDraft.map(Number).sort((a, b) => a - b);
+    saveCommissionRates(next);
+    setRatesDraft(null);
+    const current = modalIndex !== null ? referrals[COMPANIES[modalIndex].id].commission : null;
+    if (selectedRate !== null && !next.includes(selectedRate) && selectedRate !== current) setSelectedRate(null);
+  };
 
   const handleToggle = (index: number) => {
     const { id } = COMPANIES[index];
@@ -233,6 +253,7 @@ export default function ReferralCodePage() {
   const closeModal = () => {
     setModalIndex(null);
     setSelectedRate(null);
+    setRatesDraft(null);
   };
 
   const submitCommission = () => {
@@ -740,24 +761,69 @@ export default function ReferralCodePage() {
               Select the commission rate for <b>{COMPANIES[modalIndex].name}</b>. A referral code will be
               generated once submitted.
             </p>
-            <span className="rc-modal-label">Commission Rate</span>
-            <div className="rc-rate-options">
-              {COMMISSION_RATES.map((rate) => (
-                <button
-                  key={rate}
-                  className={`rc-rate-option${selectedRate === rate ? ' selected' : ''}`}
-                  onClick={() => setSelectedRate(rate)}
-                >
-                  <span className="rc-rate-radio" />
-                  {rate}%
+            <div className="rc-rate-label-row">
+              <span className="rc-modal-label">Commission Rate</span>
+              {!ratesDraft && (
+                <button type="button" className="rc-rates-edit-link" onClick={() => setRatesDraft(commissionRates.map(String))}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4" />
+                  </svg>
+                  Edit rates
                 </button>
-              ))}
+              )}
             </div>
+            {ratesDraft ? (
+              <div className="rc-rates-editor">
+                <div className="rc-rate-options">
+                  {ratesDraft.map((value, i) => (
+                    <label key={i} className="rc-rate-edit">
+                      <input
+                        className="rc-field"
+                        inputMode="decimal"
+                        aria-label={`Rate ${i + 1}`}
+                        value={value}
+                        autoFocus={i === 0}
+                        onChange={(e) =>
+                          setRatesDraft((d) => d && d.map((v, j) => (j === i ? e.target.value.replace(/[^\d.]/g, '') : v)))
+                        }
+                      />
+                      <span>%</span>
+                    </label>
+                  ))}
+                </div>
+                {ratesError && <span className="rc-field-error">{ratesError}</span>}
+                <p className="rc-rates-note">These rates are offered to every company. Companies already activated keep their current rate.</p>
+                <div className="rc-rates-editor-actions">
+                  <button type="button" className="rc-rates-default" onClick={() => setRatesDraft(DEFAULT_COMMISSION_RATES.map(String))}>
+                    Use default ({DEFAULT_COMMISSION_RATES.join('% / ')}%)
+                  </button>
+                  <button type="button" className="rc-rates-small" onClick={() => setRatesDraft(null)}>Cancel</button>
+                  <button type="button" className="rc-rates-small is-primary" onClick={saveRates} disabled={!!ratesError}>Save rates</button>
+                </div>
+              </div>
+            ) : (
+              <div className="rc-rate-options">
+                {/* An already-activated company keeps its rate even if it is no longer one of the three choices. */}
+                {(selectedRate !== null && !commissionRates.includes(selectedRate) && referrals[COMPANIES[modalIndex].id].commission === selectedRate
+                  ? [...commissionRates, selectedRate]
+                  : commissionRates
+                ).map((rate) => (
+                  <button
+                    key={rate}
+                    className={`rc-rate-option${selectedRate === rate ? ' selected' : ''}`}
+                    onClick={() => setSelectedRate(rate)}
+                  >
+                    <span className="rc-rate-radio" />
+                    {rate}%
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="rc-modal-actions">
               <button className="rc-btn-secondary" onClick={closeModal}>
                 Cancel
               </button>
-              <button className="rc-btn-primary" onClick={submitCommission} disabled={selectedRate === null}>
+              <button className="rc-btn-primary" onClick={submitCommission} disabled={selectedRate === null || !!ratesDraft}>
                 Submit
               </button>
             </div>

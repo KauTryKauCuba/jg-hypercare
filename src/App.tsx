@@ -16,6 +16,9 @@ import ReferralCompaniesPage from './pages/ReferralCompaniesPage'
 import ReferralRequestCommissionPage from './pages/ReferralRequestCommissionPage'
 import JobseekerOnboardingPage from './pages/JobseekerOnboardingPage'
 import JobseekerDashboardPage from './pages/JobseekerDashboardPage'
+import AiResumeParsePage from './pages/AiResumeParsePage'
+import AiResumeCategoriesPage from './pages/AiResumeCategoriesPage'
+import AiResumeProfilePage from './pages/AiResumeProfilePage'
 
 function App() {
   return (
@@ -37,6 +40,9 @@ function App() {
         <Route path="/referral-code-employer/request-commission" element={<ReferralRequestCommissionPage />} />
         <Route path="/jobseeker-onboarding" element={<JobseekerOnboardingPage />} />
         <Route path="/jobseeker-dashboard" element={<JobseekerDashboardPage />} />
+        <Route path="/ai-resume-parse" element={<AiResumeParsePage />} />
+        <Route path="/ai-resume-parse/job-categories" element={<AiResumeCategoriesPage />} />
+        <Route path="/ai-resume-parse/profile" element={<AiResumeProfilePage />} />
       </Routes>
     </BrowserRouter>
   )

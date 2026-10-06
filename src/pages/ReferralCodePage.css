@@ -1119,3 +1119,102 @@
   font-size: 13.5px;
   margin-top: 2px;
 }
+
+/* Edit commission rates (inside the Activate Referral popup) */
+.rc-rate-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.rc-rate-label-row .rc-modal-label {
+  margin-bottom: 0;
+}
+
+.rc-layout .rc-rates-edit-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #008990;
+}
+
+.rc-layout .rc-rates-edit-link:hover {
+  text-decoration: underline;
+}
+
+.rc-rate-edit {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.rc-layout .rc-rate-edit .rc-field {
+  width: 100%;
+  height: 56px;
+  padding-right: 36px;
+  border-radius: 12px;
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.rc-layout .rc-rate-edit .rc-field:focus {
+  border-color: #07bcca;
+}
+
+.rc-rate-edit span {
+  position: absolute;
+  right: 16px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #64748b;
+  pointer-events: none;
+}
+
+.rc-rates-note {
+  margin: 10px 0 0;
+  font-size: 13.5px;
+  color: #64748b;
+}
+
+.rc-rates-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.rc-layout .rc-rates-default {
+  margin-right: auto;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #008990;
+  text-decoration: underline;
+}
+
+.rc-layout .rc-rates-small {
+  height: 36px;
+  padding: 0 16px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.rc-layout .rc-rates-small.is-primary {
+  border-color: #07bcca;
+  background: #07bcca;
+  color: #ffffff;
+}
+
+.rc-layout .rc-rates-small.is-primary:disabled {
+  border-color: #cbd5e1;
+  background: #cbd5e1;
+  cursor: not-allowed;
+}

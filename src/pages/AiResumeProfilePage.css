@@ -1,0 +1,484 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+.arf-page {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 16px 24px;
+  background: #ffffff;
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  color: #101828;
+  text-align: left;
+}
+
+.arf-page *,
+.arf-page *::before,
+.arf-page *::after {
+  box-sizing: border-box;
+  font-family: inherit;
+  letter-spacing: normal;
+}
+
+.arf-page h1,
+.arf-page p {
+  margin: 0;
+}
+
+.arf-logo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 17px;
+  font-weight: 700;
+  color: #131b2e;
+  cursor: pointer;
+}
+
+.arf-logo img {
+  width: 34px;
+  height: 28px;
+}
+
+.arf-card {
+  width: 100%;
+  max-width: 1118px;
+  margin-top: 45px;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
+}
+
+/* Personal info | divider | job preferences, sized to the design's 487px / 485px columns. */
+.arf-top {
+  display: grid;
+  grid-template-columns: minmax(0, 487fr) 64px 1px 32px minmax(0, 485fr);
+  padding: 24px 24px 0;
+}
+
+.arf-top > section:first-child {
+  grid-column: 1;
+}
+
+.arf-divider {
+  grid-column: 3;
+  margin-top: 0;
+  margin-bottom: 0;
+  background: #e4e5e8;
+}
+
+.arf-top > section:last-child {
+  grid-column: 5;
+}
+
+.arf-title {
+  font-size: 24px;
+  line-height: 32px;
+  font-weight: 700;
+  color: #101828;
+}
+
+.arf-top .arf-title {
+  max-width: 420px;
+}
+
+.arf-sub {
+  margin-top: 4px !important;
+  font-size: 14.5px;
+  line-height: 20px;
+  color: #667085;
+}
+
+.arf-label {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 500;
+  color: #344054;
+}
+
+.arf-required {
+  margin-left: 6px;
+  color: #fa2c37;
+}
+
+.arf-sublabel {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 11.5px;
+  line-height: 14px;
+  color: #667085;
+}
+
+.arf-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.arf-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 9px;
+  margin-top: 6px;
+}
+
+/* shared onboarding controls, tuned to this design */
+.arf-page .jo-input,
+.arf-page .jo-select,
+.arf-page .jo-date-display {
+  height: 39px;
+  border-color: #e2e5ea;
+  border-radius: 10px;
+  font-size: 15px;
+}
+
+.arf-page .jo-input::placeholder,
+.arf-page .jo-date-display.is-placeholder {
+  color: #98a2b3;
+}
+
+.arf-page .jo-select.is-empty {
+  color: #667085;
+}
+
+.arf-page .jo-input-icon svg {
+  color: #667085;
+}
+
+.arf-page .jo-input.is-invalid {
+  border-color: #ef4444;
+}
+
+.arf-error {
+  margin-top: 6px !important;
+  font-size: 12px;
+  color: #ef4444;
+}
+
+/* ---------- personal information ---------- */
+.arf-personal {
+  display: grid;
+  grid-template-columns: 236px 1fr;
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.arf-avatar-box {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 176px;
+  padding: 16px;
+  border-radius: 12px;
+  background: #e6f8fb;
+}
+
+.arf-avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.arf-avatar {
+  display: inline-flex;
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 50%;
+}
+
+.arf-avatar svg,
+.arf-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.arf-change {
+  height: 37.5px;
+  padding: 0 16px;
+  border: 1px solid #008990;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #118c93;
+  font-size: 14.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.arf-change:hover {
+  background: #f0fafb;
+}
+
+.arf-avatar-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-right: 24px;
+  font-size: 12px;
+  line-height: 16px;
+  color: #5f6671;
+}
+
+.arf-avatar-note svg {
+  flex-shrink: 0;
+}
+
+.arf-names {
+  padding-top: 12px;
+}
+
+.arf-field-tight {
+  margin-top: 9px;
+}
+
+.arf-row {
+  margin-top: 16px;
+}
+
+.arf-row + .arf-row {
+  margin-top: 25px;
+}
+
+/* ---------- job preferences ---------- */
+.arf-row-first {
+  margin-top: 16px;
+}
+
+.arf-row-tight {
+  margin-top: 10px;
+}
+
+.arf-salary {
+  margin-top: 40px;
+}
+
+/* ---------- work experience ---------- */
+.arf-experience {
+  padding: 37px 24px 32px;
+}
+
+.arf-exp-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 255fr) minmax(0, 255fr) minmax(0, 526fr);
+  grid-template-rows: auto 1fr;
+  column-gap: 17px;
+  row-gap: 17px;
+  align-items: start;
+}
+
+.arf-experience .arf-label {
+  font-weight: 600;
+  color: #101828;
+}
+
+.arf-experience .arf-sub + .arf-exp-entry {
+  margin-top: 13px;
+}
+
+.arf-exp-entry + .arf-exp-entry {
+  margin-top: 31px;
+  padding-top: 39px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.arf-exp-desc {
+  grid-column: 3;
+  grid-row: 1 / span 2;
+}
+
+.arf-exp-period {
+  grid-column: 1 / span 2;
+}
+
+.arf-period {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.arf-page .jo-rte {
+  border-color: #e2e5ea;
+  border-radius: 10px;
+}
+
+.arf-page .jo-rte-content {
+  min-height: 151px;
+  font-size: 14px;
+}
+
+.arf-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 14px;
+  color: #344054;
+  cursor: pointer;
+  user-select: none;
+}
+
+.arf-check input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.arf-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border: 1px solid #d0d5dd;
+  border-radius: 4px;
+  background: #ffffff;
+}
+
+.arf-box svg {
+  opacity: 0;
+}
+
+.arf-check input:checked + .arf-box {
+  border-color: #008990;
+  background: #008990;
+}
+
+.arf-check input:checked + .arf-box svg {
+  opacity: 1;
+}
+
+.arf-check input:focus-visible + .arf-box {
+  outline: 2px solid #008990;
+  outline-offset: 2px;
+}
+
+/* ---------- footer (stays at the bottom of the screen while scrolling) ---------- */
+.arf-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 17px 47px 40px;
+  border-radius: 0 0 12px 12px;
+  background: #ffffff;
+  box-shadow: 0 -10px 16px -8px rgba(16, 24, 40, 0.06);
+}
+
+.arf-back,
+.arf-continue {
+  width: 200px;
+  height: 47.5px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.arf-back {
+  border: 1px solid #008990;
+  background: #ffffff;
+  color: #068a91;
+}
+
+.arf-back:hover {
+  background: #f0fafb;
+}
+
+.arf-continue {
+  border: none;
+  background: #12b5c6;
+  color: #ffffff;
+}
+
+.arf-continue:hover:not(:disabled) {
+  background: #0fa3b3;
+}
+
+.arf-continue:disabled {
+  background: #9cdee5;
+  cursor: not-allowed;
+}
+
+.arf-change:focus-visible,
+.arf-back:focus-visible,
+.arf-continue:focus-visible {
+  outline: 2px solid #008990;
+  outline-offset: 2px;
+}
+
+/* ---------- smaller screens ---------- */
+@media (max-width: 1000px) {
+  .arf-top {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 32px;
+  }
+
+  .arf-top > section:first-child,
+  .arf-top > section:last-child {
+    grid-column: 1;
+  }
+
+  .arf-divider {
+    grid-column: 1;
+    height: 1px;
+  }
+
+  .arf-exp-entry {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .arf-exp-entry {
+    grid-template-rows: none;
+  }
+
+  .arf-exp-desc {
+    grid-column: 1 / span 2;
+    grid-row: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .arf-personal,
+  .arf-grid-2,
+  .arf-exp-entry,
+  .arf-period {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .arf-grid-4 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .arf-exp-desc,
+  .arf-exp-period {
+    grid-column: 1;
+  }
+
+  .arf-footer {
+    padding: 16px;
+  }
+
+  .arf-back,
+  .arf-continue {
+    flex: 1;
+    width: auto;
+  }
+}
+
+.arf-page .jo-rte-btn svg {
+  width: 18px;
+  height: 18px;
+}

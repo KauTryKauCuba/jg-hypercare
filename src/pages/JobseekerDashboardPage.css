@@ -1228,3 +1228,26 @@
     align-items: flex-start;
   }
 }
+
+/* AI resume flow mapping (second entry point) */
+.jd-stat.is-ai,
+.jd-tag.is-ai {
+  background: #f3e8ff;
+  color: #7e22ce;
+}
+
+.jd-tag.is-ai-none {
+  background: #ffffff;
+  color: #dc2626;
+  box-shadow: inset 0 0 0 1px #fecaca;
+}
+
+.jd-tag + .jd-tag {
+  margin-left: 4px;
+}
+
+.jd-report-divider {
+  height: 1px;
+  margin: 14px 0 12px;
+  background: var(--jd-line);
+}

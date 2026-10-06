@@ -54,32 +54,33 @@ const toCurrency = (c: string) => (c === 'MYR' ? 'RM' : c);
 
 /* ---------- data mapping (dashboard field -> onboarding key) ---------- */
 
-type Mapping = { section: string; label: string; source?: string; filled: boolean; note?: string };
+// source = onboarding key (with live filled state); ai = key on /ai-resume-parse/profile (that flow saves nothing yet).
+type Mapping = { section: string; label: string; source?: string; filled: boolean; note?: string; ai?: string; aiNote?: string };
 
 function buildMapping(s: OnboardingState): Mapping[] {
   return [
-    { section: 'Basic Info', label: 'First Name', source: 'first_name', filled: !!s.firstName.trim() },
-    { section: 'Basic Info', label: 'Last Name', source: 'last_name', filled: !!s.lastName.trim() },
+    { section: 'Basic Info', label: 'First Name', source: 'first_name', filled: !!s.firstName.trim(), ai: 'first_name' },
+    { section: 'Basic Info', label: 'Last Name', source: 'last_name', filled: !!s.lastName.trim(), ai: 'last_name' },
     { section: 'Basic Info', label: 'Phone Number', filled: false },
-    { section: 'Basic Info', label: 'Work Experience', source: 'start_working_since', filled: !!workExperienceText(s), note: 'Derived from work_experience + start_working_since' },
-    { section: 'Basic Info', label: 'Date of Birth', source: 'date_of_birth', filled: !!s.dob },
-    { section: 'Basic Info', label: 'Earliest Availability', source: 'availability', filled: !!s.availability },
+    { section: 'Basic Info', label: 'Work Experience', source: 'start_working_since', filled: !!workExperienceText(s), note: 'Derived from work_experience + start_working_since', ai: 'working_period_from', aiNote: 'Would be worked out from work_experience + the earliest working_period_from (the AI profile has no start_working_since)' },
+    { section: 'Basic Info', label: 'Date of Birth', source: 'date_of_birth', filled: !!s.dob, ai: 'date_of_birth' },
+    { section: 'Basic Info', label: 'Earliest Availability', source: 'availability', filled: !!s.availability, ai: 'availability' },
     { section: 'Basic Info', label: 'Location', filled: false, note: 'Onboarding only asks for desired work location, not where the jobseeker lives' },
-    { section: 'Basic Info', label: 'Profile Photo', filled: false },
+    { section: 'Basic Info', label: 'Profile Photo', filled: false, ai: 'profile_photo', aiNote: 'From the Change button on the AI resume profile page' },
     { section: 'Professional Summary', label: 'Description', filled: false },
-    { section: 'Job Preferences', label: 'Desired Job Title', source: 'job_title', filled: !!s.jobTitle.trim() },
-    { section: 'Job Preferences', label: 'Desired Job Types', source: 'desired_job_type', filled: !!s.jobType },
+    { section: 'Job Preferences', label: 'Desired Job Title', source: 'job_title', filled: !!s.jobTitle.trim(), ai: 'job_title' },
+    { section: 'Job Preferences', label: 'Desired Job Types', source: 'desired_job_type', filled: !!s.jobType, ai: 'desired_job_type' },
     { section: 'Job Preferences', label: 'Country', filled: false },
-    { section: 'Job Preferences', label: 'State', source: 'desired_work_location', filled: !!s.location },
-    { section: 'Job Preferences', label: 'Currency', source: 'salary_currency', filled: !!s.currency },
-    { section: 'Job Preferences', label: 'Salary From', source: 'salary_from', filled: !!s.salaryFrom },
-    { section: 'Job Preferences', label: 'Salary To', source: 'salary_to', filled: !!s.salaryTo },
-    { section: 'Job Preferences', label: 'Salary Type', source: 'salary_type', filled: !!s.salaryType },
-    { section: 'Working Experience', label: 'Job Title', source: 'recent_job_title', filled: !!s.recentJobTitle },
-    { section: 'Working Experience', label: 'Company Name', source: 'recent_company', filled: !!s.company.trim() },
-    { section: 'Working Experience', label: 'Working From', source: 'working_period_from', filled: !!s.workFrom },
-    { section: 'Working Experience', label: 'Working To', source: 'working_period_to', filled: s.currentlyWorking || !!s.workTo },
-    { section: 'Working Experience', label: 'Description', source: 'job_description', filled: htmlHasText(s.jobDescription) },
+    { section: 'Job Preferences', label: 'State', source: 'desired_work_location', filled: !!s.location, ai: 'desired_work_location' },
+    { section: 'Job Preferences', label: 'Currency', source: 'salary_currency', filled: !!s.currency, ai: 'salary_currency' },
+    { section: 'Job Preferences', label: 'Salary From', source: 'salary_from', filled: !!s.salaryFrom, ai: 'salary_from' },
+    { section: 'Job Preferences', label: 'Salary To', source: 'salary_to', filled: !!s.salaryTo, ai: 'salary_to' },
+    { section: 'Job Preferences', label: 'Salary Type', source: 'salary_type', filled: !!s.salaryType, ai: 'salary_type' },
+    { section: 'Working Experience', label: 'Job Title', source: 'recent_job_title', filled: !!s.recentJobTitle, ai: 'recent_job_title' },
+    { section: 'Working Experience', label: 'Company Name', source: 'recent_company', filled: !!s.company.trim(), ai: 'recent_company' },
+    { section: 'Working Experience', label: 'Working From', source: 'working_period_from', filled: !!s.workFrom, ai: 'working_period_from' },
+    { section: 'Working Experience', label: 'Working To', source: 'working_period_to', filled: s.currentlyWorking || !!s.workTo, ai: 'working_period_to' },
+    { section: 'Working Experience', label: 'Description', source: 'job_description', filled: htmlHasText(s.jobDescription), ai: 'job_description' },
     { section: 'Education', label: 'Institution Name', filled: false },
     { section: 'Education', label: 'Education Level', filled: false },
     { section: 'Education', label: 'Study Period', filled: false },
@@ -87,7 +88,7 @@ function buildMapping(s: OnboardingState): Mapping[] {
     { section: 'Education', label: 'Description', filled: false },
     { section: 'Skills', label: 'Skill Name', filled: false },
     { section: 'Skills', label: 'Proficiency', filled: false },
-    { section: 'Resume', label: 'Resume File', filled: false },
+    { section: 'Resume', label: 'Resume File', filled: false, ai: 'resume_file', aiNote: 'Uploaded on the first AI resume page' },
     { section: 'Links', label: 'Portfolio', filled: false },
   ];
 }
@@ -100,6 +101,15 @@ function unusedOnboarding(s: OnboardingState) {
     { label: 'Work Arrangement', key: 'work_arrangement', value: s.workArrangement },
   ];
 }
+
+/* Collected in the AI resume flow but there is no place for it on the dashboard. */
+const UNUSED_AI = [
+  { label: 'Work Eligibility', key: 'work_eligibility' },
+  { label: 'Nationality', key: 'nationality' },
+  { label: 'Work Arrangement', key: 'work_arrangement' },
+  { label: 'Email', key: 'email', note: 'upload page' },
+  { label: 'Job Categories', key: 'job_categories', note: 'up to 3' },
+];
 
 /* ---------- icons ---------- */
 
@@ -171,12 +181,21 @@ const SOCIAL = {
 function MapTag({ source, filled, note, show }: { source?: string; filled: boolean; note?: string; show: boolean }) {
   if (!show) return null;
   if (!source) {
-    return <span className="jd-tag is-none" title={note ?? 'Not collected during onboarding'}>not in onboarding</span>;
+    return <span className="jd-tag is-none" title={note ?? 'Not collected during onboarding'}>OB · not in onboarding</span>;
   }
   return (
     <span className={`jd-tag ${filled ? 'is-mapped' : 'is-empty'}`} title={note ?? `Mapped from onboarding: ${source}`}>
-      {filled ? source : `${source} · empty`}
+      OB · {filled ? source : `${source} · empty`}
     </span>
+  );
+}
+
+function AiTag({ source, note, show }: { source?: string; note?: string; show: boolean }) {
+  if (!show) return null;
+  return source ? (
+    <span className="jd-tag is-ai" title={note ?? `Collected on the AI resume profile: ${source}`}>AI · {source}</span>
+  ) : (
+    <span className="jd-tag is-ai-none" title={note ?? 'Not collected in the AI resume flow'}>AI · not in AI resume</span>
   );
 }
 
@@ -206,14 +225,14 @@ function Section({
   title: string;
   open: boolean;
   onToggle: () => void;
-  missing?: number;
+  missing?: string;
   children: ReactNode;
 }) {
   return (
     <section id={id} className="jd-section">
       <button type="button" className="jd-section-head" aria-expanded={open} onClick={onToggle}>
         <span className="jd-section-title">{title}</span>
-        {missing !== undefined && missing > 0 && <span className="jd-section-missing">{missing} not in onboarding</span>}
+        {missing && <span className="jd-section-missing">{missing}</span>}
         <span className={`jd-section-chevron${open ? ' is-open' : ''}`}><ChevronDown /></span>
       </button>
       {open && <div className="jd-section-body">{children}</div>}
@@ -326,9 +345,21 @@ export default function JobseekerDashboardPage() {
   const mapping = buildMapping(s);
   const tagFor = (section: string, label: string) => {
     const m = mapping.find((x) => x.section === section && x.label === label);
-    return m ? <MapTag source={m.source} filled={m.filled} note={m.note} show={showMapping} /> : null;
+    return m ? (
+      <>
+        <MapTag source={m.source} filled={m.filled} note={m.note} show={showMapping} />
+        <AiTag source={m.ai} note={m.aiNote} show={showMapping} />
+      </>
+    ) : null;
   };
-  const missingIn = (section: string) => (showMapping ? mapping.filter((m) => m.section === section && !m.source).length : undefined);
+  const missingIn = (section: string) => {
+    if (!showMapping) return undefined;
+    const inSection = mapping.filter((m) => m.section === section);
+    const ob = inSection.filter((m) => !m.source).length;
+    const ai = inSection.filter((m) => !m.ai).length;
+    const parts = [ob > 0 && `${ob} not in onboarding`, ai > 0 && `${ai} not in AI resume`].filter(Boolean);
+    return parts.length > 0 ? parts.join(' · ') : undefined;
+  };
 
   const mappedFilled = mapping.filter((m) => m.source && m.filled).length;
   const mappedEmpty = mapping.filter((m) => m.source && !m.filled);
@@ -338,6 +369,10 @@ export default function JobseekerDashboardPage() {
     return acc;
   }, {});
   const unused = unusedOnboarding(s);
+  const noAi = mapping.filter((m) => !m.ai);
+  // Fields one entry point fills and the other does not.
+  const onlyOnboarding = mapping.filter((m) => m.source && !m.ai);
+  const onlyAi = mapping.filter((m) => m.ai && !m.source);
 
   const fullName = `${s.firstName} ${s.lastName}`.trim();
 
@@ -626,7 +661,7 @@ export default function JobseekerDashboardPage() {
               <div className="jd-resume-head">
                 <div>
                   <span className="jd-section-title">Resume</span>
-                  {missingIn('Resume') ? <span className="jd-section-missing">{missingIn('Resume')} not in onboarding</span> : null}
+                  {missingIn('Resume') ? <span className="jd-section-missing">{missingIn('Resume')}</span> : null}
                   <p className="jd-resume-sub">Upload up to 3 resumes (PDF, DOC, DOCX · max 30MB each)</p>
                 </div>
                 <label className="jd-icon-btn" aria-label="Add resume">
@@ -740,11 +775,47 @@ export default function JobseekerDashboardPage() {
                 <li key={u.key}>{u.label} <code>{u.key}</code> <span className="jd-muted">{u.value || '(empty)'}</span></li>
               ))}
             </ul>
+
+            <div className="jd-report-divider" />
+            <span className="jd-report-title">Onboarding vs AI resume</span>
+            <div className="jd-report-stats">
+              <span className="jd-stat is-mapped">OB covers {mapping.length - noSource.length}/{mapping.length}</span>
+              <span className="jd-stat is-ai">AI covers {mapping.length - noAi.length}/{mapping.length}</span>
+            </div>
+            <h3>Only the AI resume flow fills</h3>
+            <ul>
+              {onlyAi.length > 0
+                ? onlyAi.map((m) => <li key={m.section + m.label}><strong>{m.section}:</strong> {m.label} <code>{m.ai}</code></li>)
+                : <li className="jd-muted">Nothing</li>}
+            </ul>
+            <h3>Only onboarding fills</h3>
+            <ul>
+              {onlyOnboarding.length > 0
+                ? onlyOnboarding.map((m) => <li key={m.section + m.label}><strong>{m.section}:</strong> {m.label} <code>{m.source}</code></li>)
+                : <li className="jd-muted">Nothing</li>}
+            </ul>
+            <h3>Filled differently</h3>
+            <ul>
+              <li><strong>Basic Info:</strong> Work Experience: onboarding asks <code>start_working_since</code>; AI resume would use the earliest <code>working_period_from</code></li>
+              <li><strong>Working Experience:</strong> onboarding gives 1 entry; AI resume gives up to 3</li>
+            </ul>
+            <h3>Missing in both</h3>
+            <ul>
+              {noSource.filter((m) => !m.ai).map((m) => (
+                <li key={m.section + m.label}><strong>{m.section}:</strong> {m.label}</li>
+              ))}
+            </ul>
+            <h3>Collected in AI resume, no place on dashboard</h3>
+            <ul>
+              {UNUSED_AI.map((u) => (
+                <li key={u.key}>{u.label} <code>{u.key}</code>{u.note && <span className="jd-muted"> ({u.note})</span>}</li>
+              ))}
+            </ul>
           </div>
         )}
         <button type="button" className="jd-mapping-fab" aria-expanded={reportOpen} onClick={() => setReportOpen((o) => !o)}>
           Mapping
-          <span>{noSource.length} missing</span>
+          <span>OB {noSource.length} · AI {noAi.length} missing</span>
         </button>
       </div>
 

@@ -74,6 +74,9 @@ export type ReferralMap = Record<string, ReferralState>;
 const STORAGE_KEY = 'jg-hypercare:referrals';
 const ADVICE_COUNTER_KEY = 'jg-hypercare:referrals-advice-counter';
 const SALES_INVOICE_KEY = 'jg-hypercare:referrals-sales-invoices';
+const RATES_KEY = 'jg-hypercare:referrals-commission-rates';
+
+export const DEFAULT_COMMISSION_RATES = [15, 20, 25];
 const CHANGE_EVENT = 'jg-hypercare:referrals-change';
 
 const defaults = (): ReferralMap =>
@@ -226,6 +229,7 @@ export function resetReferrals() {
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(ADVICE_COUNTER_KEY);
     localStorage.removeItem(SALES_INVOICE_KEY);
+    localStorage.removeItem(RATES_KEY);
   } catch {
     return;
   }
@@ -234,4 +238,57 @@ export function resetReferrals() {
 
 export function useReferrals(): ReferralMap {
   return useSyncExternalStore(subscribe, getSnapshot);
+}
+
+// The three commission rate choices shown when activating a referral. Shared by all companies;
+// changing them never touches a company's existing rate or past commission requests.
+let cachedRatesRaw: string | null | undefined;
+let cachedRates: number[] = DEFAULT_COMMISSION_RATES;
+
+function getRatesSnapshot(): number[] {
+  let raw: string | null = null;
+  try {
+    raw = localStorage.getItem(RATES_KEY);
+  } catch {
+    raw = null;
+  }
+  if (raw !== cachedRatesRaw) {
+    cachedRatesRaw = raw;
+    try {
+      const parsed = raw ? JSON.parse(raw) : null;
+      cachedRates =
+        Array.isArray(parsed) && parsed.length === 3 && parsed.every((n) => typeof n === 'number' && n > 0 && n <= 100)
+          ? parsed
+          : DEFAULT_COMMISSION_RATES;
+    } catch {
+      cachedRates = DEFAULT_COMMISSION_RATES;
+    }
+  }
+  return cachedRates;
+}
+
+function subscribeRates(onChange: () => void) {
+  const onStorage = (e: StorageEvent) => {
+    if (e.key === RATES_KEY || e.key === null) onChange();
+  };
+  window.addEventListener('storage', onStorage);
+  window.addEventListener(CHANGE_EVENT, onChange);
+  return () => {
+    window.removeEventListener('storage', onStorage);
+    window.removeEventListener(CHANGE_EVENT, onChange);
+  };
+}
+
+export function saveCommissionRates(rates: number[]): boolean {
+  try {
+    localStorage.setItem(RATES_KEY, JSON.stringify(rates));
+  } catch {
+    return false;
+  }
+  window.dispatchEvent(new Event(CHANGE_EVENT));
+  return true;
+}
+
+export function useCommissionRates(): number[] {
+  return useSyncExternalStore(subscribeRates, getRatesSnapshot);
 }

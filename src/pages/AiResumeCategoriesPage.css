@@ -1,0 +1,275 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+.arc-page {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 16px 32px;
+  background: #ffffff;
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+  color: #131b2e;
+  text-align: left;
+}
+
+.arc-page *,
+.arc-page *::before,
+.arc-page *::after {
+  box-sizing: border-box;
+  font-family: inherit;
+  letter-spacing: normal;
+}
+
+.arc-page h1,
+.arc-page h2,
+.arc-page p {
+  margin: 0;
+}
+
+.arc-logo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: none;
+  background: none;
+  font-size: 17px;
+  font-weight: 700;
+  color: #131b2e;
+  cursor: pointer;
+}
+
+.arc-logo img {
+  width: 34px;
+  height: 28px;
+}
+
+/* Card fills the screen height; the questions scroll and the Next bar stays at the bottom. */
+.arc-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 512px;
+  max-height: calc(100vh - 168px);
+  margin-top: 72px;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 0 60px rgba(16, 24, 40, 0.08);
+}
+
+.arc-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  /* Scrolling clips overflow, so the area reaches past the card's left edge to keep the bubbles visible. */
+  margin-left: -60px;
+  padding: 21px 0 24px 60px;
+  scrollbar-width: thin;
+}
+
+/* ---------- hero ---------- */
+.arc-hero {
+  position: relative;
+  height: 342px;
+  margin: 0 42px 0 32px;
+  padding: 16px 18px 0;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #e7f9fa 0%, #eaf8fa 45%, #ffffff 100%);
+  font-family: 'Inter', sans-serif;
+}
+
+.arc-hero-title {
+  max-width: 330px;
+  font-size: 21px;
+  line-height: 25.5px;
+  font-weight: 600;
+  color: #131b2e;
+}
+
+.arc-hero-sub {
+  margin-top: 8px !important;
+  font-size: 12px;
+  line-height: 18px;
+  color: #64748b;
+}
+
+.arc-robot {
+  position: absolute;
+  left: 125.5px;
+  top: 102.5px;
+  width: 312px;
+  height: 240px;
+  pointer-events: none;
+  /* blend the cut-out image into the hero background */
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 18%), linear-gradient(180deg, transparent 0, #000 12%);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(90deg, transparent 0, #000 18%), linear-gradient(180deg, transparent 0, #000 12%);
+  mask-composite: intersect;
+}
+
+.arc-bubble {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  border-radius: 10px;
+  font-size: 12.3px;
+  font-weight: 600;
+  line-height: 15px;
+  white-space: nowrap;
+}
+
+.arc-bubble-1,
+.arc-bubble-2 {
+  height: 42.5px;
+  padding: 0 15px;
+  background: #ffffff;
+  color: #131b2e;
+  box-shadow: 0 6px 20px rgba(16, 24, 40, 0.06);
+}
+
+.arc-bubble-1 {
+  left: -77px;
+  top: 118.5px;
+  width: 296.5px;
+}
+
+.arc-bubble-2 {
+  left: -75px;
+  top: 186px;
+  width: 285.5px;
+}
+
+.arc-bubble-3 {
+  left: -25px;
+  top: 253.5px;
+  width: 219.5px;
+  height: 57.5px;
+  justify-content: center;
+  padding: 0 16px;
+  background: #008990;
+  color: #ffffff;
+  text-align: center;
+  white-space: normal;
+  box-shadow: 0 8px 20px rgba(0, 137, 144, 0.18);
+}
+
+/* ---------- question ---------- */
+.arc-question {
+  padding: 32px 24px 0;
+}
+
+.arc-question h2 {
+  font-size: 17.5px;
+  line-height: 24px;
+  font-weight: 700;
+  color: #1f2124;
+}
+
+.arc-question p {
+  margin-top: 4px;
+  font-size: 13.5px;
+  line-height: 20px;
+  color: #667085;
+}
+
+.arc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.arc-chip {
+  height: 37.5px;
+  padding: 0 16px;
+  border: 1px solid #008990;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #068a91;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.arc-chip:hover:not(:disabled) {
+  background: #f0fafb;
+}
+
+.arc-chip.is-selected {
+  background: #008990;
+  color: #ffffff;
+}
+
+.arc-chip.is-selected:hover {
+  background: #007a80;
+}
+
+.arc-chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.arc-chip:focus-visible,
+.arc-next:focus-visible {
+  outline: 2px solid #008990;
+  outline-offset: 2px;
+}
+
+/* ---------- footer ---------- */
+.arc-footer {
+  flex-shrink: 0;
+  padding: 24px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.arc-next {
+  width: 100%;
+  height: 44px;
+  border: none;
+  border-radius: 9px;
+  background: #12b5c6;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.arc-next:hover:not(:disabled) {
+  background: #0fa3b3;
+}
+
+.arc-next:disabled {
+  background: #9cdee5;
+  cursor: not-allowed;
+}
+
+/* Narrow screens: bubbles move inside the hero instead of hanging off the card. */
+@media (max-width: 600px) {
+  .arc-scroll {
+    margin-left: 0;
+    padding-left: 0;
+  }
+
+  .arc-hero {
+    margin: 0 16px;
+  }
+
+  .arc-bubble-1,
+  .arc-bubble-2 {
+    left: 8px;
+    width: auto;
+    white-space: normal;
+  }
+
+  .arc-bubble-3 {
+    left: 8px;
+  }
+
+  .arc-robot {
+    left: auto;
+    right: 0;
+  }
+}
