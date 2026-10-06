@@ -490,7 +490,7 @@ export default function ReferralEmployerPage() {
                                   : q.status === 'Rejected'
                                     ? `Rejected ${q.decidedAt}`
                                     : q.status === 'In Review'
-                                      ? 'JobGiga is reviewing your invoice'
+                                      ? 'JobGiga is reviewing your request'
                                       : ''}
                             </span>
                           </div>
