@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import EmployerShell from '../components/EmployerShell';
 import { COMPANIES } from '../data/companies';
@@ -412,9 +412,9 @@ const locationStats = (applications: { state: string | null; jobTitle: string }[
 };
 
 const DEVICES = [
-  { label: 'Desktop', short: 'D', color: '#0b8a92' },
+  { label: 'Desktop', short: 'D', color: '#6366f1' },
   { label: 'Mobile', short: 'M', color: '#07bcca' },
-  { label: 'Tablet', short: 'T', color: '#a5e9ef' },
+  { label: 'Tablet', short: 'T', color: '#f59e0b' },
 ] as const;
 type Device = (typeof DEVICES)[number]['label'];
 
@@ -534,6 +534,9 @@ const smoothPath = (pts: [number, number][]) =>
     return `${d} C ${c1[0]} ${c1[1]}, ${c2[0]} ${c2[1]}, ${x} ${y}`;
   }, '');
 
+// One colour per age group, youngest to oldest; the curve blends between them.
+const AGE_COLORS = ['#07bcca', '#0b8a92', '#6366f1', '#a855f7', '#ec4899'];
+
 const AgeAreaChart = ({ groups, shareOf }: { groups: AgeGroup[]; shareOf: (g: AgeGroup) => number }) => {
   const [active, setActive] = useState<number | null>(null);
   const w = 600;
@@ -561,30 +564,41 @@ const AgeAreaChart = ({ groups, shareOf }: { groups: AgeGroup[]; shareOf: (g: Ag
       <div className="ti-chart-body" onMouseLeave={() => setActive(null)}>
         <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="ti-chart-svg">
           <defs>
-            <linearGradient id="ti-age-area" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#07bcca" stopOpacity="0.45" />
-              <stop offset="100%" stopColor="#07bcca" stopOpacity="0.04" />
+            <linearGradient id="ti-age-line" gradientUnits="userSpaceOnUse" x1={0} y1={0} x2={w} y2={0}>
+              {pts.map(([px], i) => (
+                <stop key={i} offset={px / w} stopColor={AGE_COLORS[i]} />
+              ))}
             </linearGradient>
+            <linearGradient id="ti-age-fade" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.5" />
+              <stop offset="100%" stopColor="#ffffff" stopOpacity="0.05" />
+            </linearGradient>
+            <mask id="ti-age-mask" maskUnits="userSpaceOnUse" x={0} y={0} width={w} height={h}>
+              <rect x={0} y={0} width={w} height={h} fill="url(#ti-age-fade)" />
+            </mask>
           </defs>
           {ticks.map((v) => (
             <line key={`h${v}`} x1={0} x2={w} y1={y(v)} y2={y(v)} className="ti-grid-line" />
           ))}
           {!empty && (
             <>
-              <path d={area} fill="url(#ti-age-area)" />
-              <path d={line} fill="none" stroke="#0b8a92" strokeWidth={3} vectorEffect="non-scaling-stroke" />
+              <path d={area} fill="url(#ti-age-line)" mask="url(#ti-age-mask)" />
+              <path d={line} fill="none" stroke="url(#ti-age-line)" strokeWidth={3} vectorEffect="non-scaling-stroke" />
             </>
           )}
         </svg>
         {!empty && active !== null && (
-          <span className="ti-area-guide" style={{ left: leftOf(active), top: pts[active][1], height: h - pts[active][1] }} />
+          <span
+            className="ti-area-guide"
+            style={{ left: leftOf(active), top: pts[active][1], height: h - pts[active][1], '--c': AGE_COLORS[active] } as CSSProperties}
+          />
         )}
         {!empty &&
           groups.map((g, i) => (
             <span
               key={g.range}
               className={`ti-area-dot${i === peak ? ' is-peak' : ''}${i === active ? ' is-active' : ''}`}
-              style={{ left: leftOf(i), top: pts[i][1] }}
+              style={{ left: leftOf(i), top: pts[i][1], '--c': AGE_COLORS[i] } as CSSProperties}
             >
               {i === peak && active === null && <b className="ti-area-peak">Peak · {g.total}</b>}
             </span>
@@ -630,7 +644,12 @@ const AgeAreaChart = ({ groups, shareOf }: { groups: AgeGroup[]; shareOf: (g: Ag
         {empty && <span className="ti-chart-empty">No age data yet</span>}
         <div className="ti-chart-x ti-age-x" style={{ gridTemplateColumns: `repeat(${groups.length}, 1fr)` }}>
           {groups.map((g, i) => (
-            <span key={g.range} className={i === active ? 'is-active' : ''} onMouseEnter={() => !empty && setActive(i)}>
+            <span
+              key={g.range}
+              className={i === active ? 'is-active' : ''}
+              style={{ '--c': AGE_COLORS[i] } as CSSProperties}
+              onMouseEnter={() => !empty && setActive(i)}
+            >
               <b>{g.range.replace(' years', '')}</b>
               {g.total.toLocaleString()} · {shareOf(g)}%
             </span>
@@ -876,7 +895,7 @@ const LocationChart = ({ rows, located }: { rows: LocationRow[]; located: number
   );
 };
 
-const EXPERIENCE_COLORS = ['#c4f1f5', '#7dd9e1', '#07bcca', '#0b8a92', '#0b6e74', '#134e4a'];
+const EXPERIENCE_COLORS = ['#07bcca', '#0b8a92', '#6366f1', '#a855f7', '#ec4899', '#f59e0b'];
 
 const ExperienceChart = ({ bands, provided }: { bands: ExperienceBand[]; provided: number }) => {
   const [active, setActive] = useState<number | null>(null);
@@ -995,6 +1014,8 @@ const ExperienceChart = ({ bands, provided }: { bands: ExperienceBand[]; provide
   );
 };
 
+const EDUCATION_COLORS = ['#07bcca', '#0b8a92', '#6366f1', '#a855f7', '#ec4899', '#f59e0b'];
+
 const EducationChart = ({ bars, provided }: { bars: EducationBar[]; provided: number }) => {
   const [active, setActive] = useState<number | null>(null);
   const w = 600;
@@ -1006,7 +1027,6 @@ const EducationChart = ({ bars, provided }: { bars: EducationBar[]; provided: nu
   const y = (v: number) => h - (v / max) * h;
   const empty = provided === 0;
   const share = (n: number) => (provided === 0 ? 0 : Math.round((n / provided) * 100));
-  const peak = bars.reduce((best, b, i) => (b.count > bars[best].count ? i : best), 0);
   const a = active === null ? null : bars[active];
   return (
     <div className="ti-chart ti-chart-edu">
@@ -1032,7 +1052,7 @@ const EducationChart = ({ bars, provided }: { bars: EducationBar[]; provided: nu
                   y={y(b.count)}
                   width={barWidth}
                   height={h - y(b.count)}
-                  fill={i === peak ? '#0b8a92' : '#5fd8e1'}
+                  fill={EDUCATION_COLORS[i]}
                   className="ti-col-rect"
                   opacity={active !== null && active !== i ? 0.35 : 1}
                 />
@@ -1062,7 +1082,7 @@ const EducationChart = ({ bars, provided }: { bars: EducationBar[]; provided: nu
               <div className="ti-col-tip-rows">
                 {a.fields.map(([field, n]) => (
                   <span key={field}>
-                    <i style={{ background: '#5fd8e1' }} />
+                    <i style={{ background: EDUCATION_COLORS[active!] }} />
                     {field}
                     <em>{n}</em>
                   </span>
@@ -1332,7 +1352,7 @@ export default function TalentIntelligencePage() {
             <span className="ti-panel-sub">Monitor and analyze performance to optimize your spend across products</span>
             <div className="ti-devices">
               {devices.map((d) => (
-                <div key={d.label} className="ti-card ti-device">
+                <div key={d.label} className="ti-card ti-device" style={{ '--c': d.color } as CSSProperties}>
                   <span className="ti-device-label">
                     <DeviceIcon label={d.label} />
                     {d.label}
@@ -1353,7 +1373,7 @@ export default function TalentIntelligencePage() {
             <div className="ti-mix-legend">
               {devices.map((d) => (
                 <span key={d.label}>
-                  <b>{d.short}</b> {d.pct}%
+                  <b style={{ color: d.color }}>{d.short}</b> {d.pct}%
                 </span>
               ))}
             </div>

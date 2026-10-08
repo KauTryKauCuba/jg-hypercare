@@ -59,7 +59,7 @@
   height: 12px;
   border-radius: 50%;
   background: #ffffff;
-  border: 3px solid #0b8a92;
+  border: 3px solid var(--c, #0b8a92);
   transform: translate(-50%, -50%);
   box-sizing: border-box;
 }
@@ -67,9 +67,9 @@
 .ti-area-dot.is-peak {
   width: 16px;
   height: 16px;
-  background: #0b8a92;
+  background: var(--c, #0b8a92);
   border-color: #ffffff;
-  box-shadow: 0 0 0 3px #0b8a92;
+  box-shadow: 0 0 0 3px var(--c, #0b8a92);
 }
 
 .ti-area-peak {
@@ -79,7 +79,7 @@
   transform: translateX(-50%);
   padding: 3px 10px;
   border-radius: 999px;
-  background: #0b8a92;
+  background: var(--c, #0b8a92);
   color: #ffffff;
   font-size: 13px;
   font-weight: 600;
@@ -94,15 +94,15 @@
 .ti-area-dot.is-active {
   width: 18px;
   height: 18px;
-  background: #0b8a92;
+  background: var(--c, #0b8a92);
   border-color: #ffffff;
-  box-shadow: 0 0 0 3px #0b8a92, 0 4px 12px rgba(11, 138, 146, 0.35);
+  box-shadow: 0 0 0 3px var(--c, #0b8a92), 0 4px 12px rgba(16, 24, 40, 0.25);
 }
 
 .ti-area-guide {
   position: absolute;
   width: 0;
-  border-left: 2px dashed #0b8a92;
+  border-left: 2px dashed var(--c, #0b8a92);
   opacity: 0.5;
   pointer-events: none;
 }
@@ -345,7 +345,7 @@
 }
 
 .ti-device-label svg {
-  color: #008990;
+  color: var(--c, #008990);
 }
 
 .ti-device-value {
@@ -979,4 +979,8 @@
   width: 12px;
   height: 12px;
   border-radius: 3px;
+}
+
+.ti-age-x span[style] b {
+  color: var(--c);
 }
