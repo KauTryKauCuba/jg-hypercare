@@ -60,6 +60,9 @@ export default function HomePage() {
         <div className="evaluation-card" onClick={() => navigate('/ai-resume-parse')} style={{ cursor: 'pointer', margin: 0 }}>
           <h2>ai resume parse</h2>
         </div>
+        <div className="evaluation-card" onClick={() => navigate('/talent-intelligence')} style={{ cursor: 'pointer', margin: 0 }}>
+          <h2>talent intelligence</h2>
+        </div>
       </div>
     </div>
   );

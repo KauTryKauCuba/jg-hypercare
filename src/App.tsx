@@ -19,6 +19,7 @@ import JobseekerDashboardPage from './pages/JobseekerDashboardPage'
 import AiResumeParsePage from './pages/AiResumeParsePage'
 import AiResumeCategoriesPage from './pages/AiResumeCategoriesPage'
 import AiResumeProfilePage from './pages/AiResumeProfilePage'
+import TalentIntelligencePage from './pages/TalentIntelligencePage'
 
 function App() {
   return (
@@ -43,6 +44,7 @@ function App() {
         <Route path="/ai-resume-parse" element={<AiResumeParsePage />} />
         <Route path="/ai-resume-parse/job-categories" element={<AiResumeCategoriesPage />} />
         <Route path="/ai-resume-parse/profile" element={<AiResumeProfilePage />} />
+        <Route path="/talent-intelligence" element={<TalentIntelligencePage />} />
       </Routes>
     </BrowserRouter>
   )

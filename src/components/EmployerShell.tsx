@@ -97,7 +97,7 @@ const NAV_ITEMS = [
     ),
   },
   {
-    label: 'Search Talent',
+    label: 'Talent',
     icon: (
       <svg {...iconProps}>
         <circle cx="9" cy="7" r="4" />
@@ -142,10 +142,12 @@ export default function EmployerShell({
   company,
   onCompanyChange,
   children,
+  active,
 }: {
   company: Company;
   onCompanyChange: (companyId: string) => void;
   children: ReactNode;
+  active?: string;
 }) {
   const navigate = useNavigate();
   return (
@@ -157,7 +159,7 @@ export default function EmployerShell({
         </div>
         <nav className="rc-nav">
           {NAV_ITEMS.map((item) => (
-            <div key={item.label} className="rc-nav-item">
+            <div key={item.label} className={`rc-nav-item${item.label === active ? ' active' : ''}`}>
               <span className="rc-nav-icon">{item.icon}</span>
               <span className="rc-nav-label">{item.label}</span>
             </div>
