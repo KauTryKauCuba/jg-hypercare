@@ -33,37 +33,104 @@
 .ti-filter {
   position: relative;
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  color: #64748b;
 }
 
-.ti-filter select {
-  appearance: none;
+.rc-layout .ti-filter-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   height: 36px;
-  padding: 0 34px 0 14px;
+  min-width: 140px;
+  padding: 0 12px 0 14px;
   border: 1.5px solid #e2e8f0;
   border-radius: 8px;
   background: #ffffff;
   font: inherit;
   font-size: 14px;
+  font-weight: 500;
   color: #141b2e;
   cursor: pointer;
+  transition: border-color 0.15s ease;
 }
 
-.ti-filter select:hover {
+.rc-layout .ti-filter-trigger span {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.rc-layout .ti-filter-trigger:hover,
+.ti-filter.open .ti-filter-trigger {
   border-color: #07bcca;
 }
 
-.ti-filter select:focus-visible {
+.rc-layout .ti-filter-trigger:focus-visible {
   outline: 2px solid #0b8a92;
   outline-offset: 2px;
 }
 
-.ti-filter svg {
+.ti-filter-trigger svg {
+  flex-shrink: 0;
+  color: #64748b;
+  transition: transform 0.15s ease;
+}
+
+.ti-filter.open .ti-filter-trigger svg {
+  transform: rotate(180deg);
+}
+
+.ti-filter-menu {
   position: absolute;
-  right: 12px;
-  pointer-events: none;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  min-width: 100%;
+  width: max-content;
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  list-style: none;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+}
+
+.rc-layout .ti-filter-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  color: #141b2e;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.rc-layout .ti-filter-option.focused {
+  background: #f1f5f9;
+}
+
+.rc-layout .ti-filter-option.selected {
+  background: #e6f7f8;
+  color: #008990;
+  font-weight: 600;
+}
+
+.ti-filter-option svg {
+  color: #008990;
 }
 
 .ti-panel-sub {

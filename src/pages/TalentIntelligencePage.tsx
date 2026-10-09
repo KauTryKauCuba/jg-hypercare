@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import EmployerShell from '../components/EmployerShell';
 import { COMPANIES } from '../data/companies';
@@ -182,24 +182,35 @@ const EXPERIENCE_TITLES: Record<string, [string, string, string]> = {
 const NO_EXPERIENCE_INFO_EVERY = 22;
 
 // Uses its own seed per applicant, so adding experience never changes their age, state, job or apply date.
-const EDUCATION_LEVELS = ['SPM', 'Certificate', 'Diploma', 'Degree', "Master's", 'PhD'] as const;
+// Same options as the jobseeker dashboard's Education Level.
+const EDUCATION_LEVELS = ['High School', 'Diploma', "Bachelor's Degree", "Master's Degree", 'PhD', 'Other'] as const;
 type EducationLevel = (typeof EDUCATION_LEVELS)[number];
 type Education = { level: EducationLevel; field: string; institution: string; from: number; to: number };
 
 // Typical education for each job applied for: the usual level mix and fields of study.
 const EDUCATION_BY_JOB: Record<string, { levels: Partial<Record<EducationLevel, number>>; fields: string[] }> = {
-  'Graphic Designer': { levels: { Diploma: 0.4, Degree: 0.5, "Master's": 0.1 }, fields: ['Graphic Design', 'Multimedia', 'Fine Arts'] },
-  'Software Engineer': { levels: { Diploma: 0.1, Degree: 0.7, "Master's": 0.17, PhD: 0.03 }, fields: ['Computer Science', 'Software Engineering', 'Information Technology'] },
-  'Data Analyst': { levels: { Diploma: 0.1, Degree: 0.65, "Master's": 0.22, PhD: 0.03 }, fields: ['Statistics', 'Computer Science', 'Mathematics'] },
-  'Marketing Executive': { levels: { Diploma: 0.35, Degree: 0.55, "Master's": 0.1 }, fields: ['Marketing', 'Business Administration', 'Mass Communication'] },
-  'HR Manager': { levels: { Diploma: 0.15, Degree: 0.55, "Master's": 0.3 }, fields: ['Human Resource Management', 'Psychology', 'Business Administration'] },
-  'Customer Service': { levels: { SPM: 0.35, Certificate: 0.25, Diploma: 0.3, Degree: 0.1 }, fields: ['Business Studies', 'Hospitality', 'Communication'] },
-  Accountant: { levels: { Diploma: 0.15, Degree: 0.65, "Master's": 0.2 }, fields: ['Accounting', 'Finance', 'Business Administration'] },
+  'Graphic Designer': { levels: { Diploma: 0.4, "Bachelor's Degree": 0.5, "Master's Degree": 0.1 }, fields: ['Graphic Design', 'Multimedia', 'Fine Arts'] },
+  'Software Engineer': { levels: { Diploma: 0.1, "Bachelor's Degree": 0.7, "Master's Degree": 0.17, PhD: 0.03 }, fields: ['Computer Science', 'Software Engineering', 'Information Technology'] },
+  'Data Analyst': { levels: { Diploma: 0.1, "Bachelor's Degree": 0.65, "Master's Degree": 0.22, PhD: 0.03 }, fields: ['Statistics', 'Computer Science', 'Mathematics'] },
+  'Marketing Executive': { levels: { Diploma: 0.35, "Bachelor's Degree": 0.55, "Master's Degree": 0.1 }, fields: ['Marketing', 'Business Administration', 'Mass Communication'] },
+  'HR Manager': { levels: { Diploma: 0.15, "Bachelor's Degree": 0.55, "Master's Degree": 0.3 }, fields: ['Human Resource Management', 'Psychology', 'Business Administration'] },
+  'Customer Service': { levels: { 'High School': 0.35, Other: 0.25, Diploma: 0.3, "Bachelor's Degree": 0.1 }, fields: ['Business Studies', 'Hospitality', 'Communication'] },
+  Accountant: { levels: { Diploma: 0.15, "Bachelor's Degree": 0.65, "Master's Degree": 0.2 }, fields: ['Accounting', 'Finance', 'Business Administration'] },
 };
 const INSTITUTIONS = ['Universiti Malaya', 'UiTM', 'UKM', 'UPM', 'USM', 'UTM', "Taylor's University", 'Sunway University', 'Multimedia University', 'APU'];
 const COLLEGES = ['Kolej Komuniti Selangor', 'Politeknik Ungku Omar', 'SEGi College', 'KDU College'];
 // Years it takes to finish each level, and the age people usually start it.
-const STUDY = { SPM: [5, 13], Certificate: [1, 17], Diploma: [3, 18], Degree: [4, 19], "Master's": [2, 24], PhD: [4, 27] } as const;
+// "Other" covers short certificates and similar qualifications.
+const STUDY = {
+  'High School': [5, 13],
+  Other: [1, 17],
+  Diploma: [3, 18],
+  "Bachelor's Degree": [4, 19],
+  "Master's Degree": [2, 24],
+  PhD: [4, 27],
+} as const;
+// Lowest to highest, for stepping down when someone is too young for a level.
+const STUDY_ORDER: EducationLevel[] = ['High School', 'Other', 'Diploma', "Bachelor's Degree", "Master's Degree", 'PhD'];
 const NO_EDUCATION_INFO_EVERY = 25;
 
 // Own seed per applicant, so education never changes their age, state, job, apply date or experience.
@@ -216,13 +227,13 @@ const dummyEducation = (id: number, age: number | null, jobTitle: string, now: D
   let level = (options.find(([, w]) => (r -= w) < 0) ?? options[0])[0];
   const years = age ?? 30;
   // Too young to have finished it yet: fall back to the highest level they could have.
-  while (STUDY[level][1] + STUDY[level][0] > years && level !== 'SPM') level = EDUCATION_LEVELS[EDUCATION_LEVELS.indexOf(level) - 1];
+  while (STUDY[level][1] + STUDY[level][0] > years && level !== 'High School') level = STUDY_ORDER[STUDY_ORDER.indexOf(level) - 1];
   const [duration, startAge] = STUDY[level];
   const birthYear = now.getFullYear() - years;
   const from = birthYear + startAge;
-  const field = level === 'SPM' ? 'Sijil Pelajaran Malaysia' : profile.fields[Math.floor(rand() * profile.fields.length)];
+  const field = level === 'High School' ? 'SPM' : profile.fields[Math.floor(rand() * profile.fields.length)];
   const institution =
-    level === 'SPM' ? 'Secondary school' : level === 'Certificate' || level === 'Diploma'
+    level === 'High School' ? 'Secondary school' : level === 'Other' || level === 'Diploma'
       ? [...COLLEGES, ...INSTITUTIONS][Math.floor(rand() * (COLLEGES.length + INSTITUTIONS.length))]
       : INSTITUTIONS[Math.floor(rand() * INSTITUTIONS.length)];
   return { level, field, institution, from, to: from + duration };
@@ -405,9 +416,9 @@ const educationStats = (records: { education: Education | null }[]) => {
     };
   });
   const fieldTotals = new Map<string, number>();
-  for (const e of known) if (e.level !== 'SPM') fieldTotals.set(e.field, (fieldTotals.get(e.field) ?? 0) + 1);
+  for (const e of known) if (e.level !== 'High School') fieldTotals.set(e.field, (fieldTotals.get(e.field) ?? 0) + 1);
   const top = bars.reduce<EducationBar | null>((best, b) => (best === null || b.count > best.count ? b : best), null);
-  const degreeUp = known.filter((e) => EDUCATION_LEVELS.indexOf(e.level) >= EDUCATION_LEVELS.indexOf('Degree')).length;
+  const degreeUp = known.filter((e) => e.level === "Bachelor's Degree" || e.level === "Master's Degree" || e.level === 'PhD').length;
   return {
     bars,
     provided: known.length,
@@ -772,6 +783,102 @@ const PARAMS: Param[] = [
   { panel: 'Expected Salary Range', label: 'Salary type', key: 'salary_type', source: 'Jobseeker dashboard · Job Preferences', status: 'available', note: 'Monthly, Daily, Hourly or Yearly; collected in onboarding and AI resume' },
   { panel: 'Desktop vs Mobile Applied', label: 'Device', key: 'device_type', source: 'Not collected', status: 'missing', note: 'Needs to be recorded from the browser when the jobseeker applies' },
 ];
+
+type FilterOption = { value: string; label: string };
+
+// Card filter dropdown in the referral-code style (not the browser's native select).
+const FilterSelect = ({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: FilterOption[];
+  onChange: (value: string) => void;
+}) => {
+  const [open, setOpen] = useState(false);
+  const [focus, setFocus] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const current = options.find((o) => o.value === value) ?? options[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+
+  const pick = (v: string) => {
+    onChange(v);
+    setOpen(false);
+  };
+  const openMenu = () => {
+    setFocus(Math.max(0, options.findIndex((o) => o.value === value)));
+    setOpen(true);
+  };
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') return setOpen(false);
+    if (!open && (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ')) {
+      e.preventDefault();
+      return openMenu();
+    }
+    if (!open) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFocus((f) => Math.min(options.length - 1, f + 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setFocus((f) => Math.max(0, f - 1));
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      pick(options[focus].value);
+    }
+  };
+
+  return (
+    <div className={`ti-filter${open ? ' open' : ''}`} ref={ref} onKeyDown={onKeyDown}>
+      <button
+        type="button"
+        className="ti-filter-trigger"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`${label}: ${current.label}`}
+        onClick={() => (open ? setOpen(false) : openMenu())}
+      >
+        <span>{current.label}</span>
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {open && (
+        <ul className="ti-filter-menu" role="listbox" aria-label={label}>
+          {options.map((o, i) => (
+            <li key={o.value} role="option" aria-selected={o.value === value}>
+              <button
+                type="button"
+                tabIndex={-1}
+                className={`ti-filter-option${o.value === value ? ' selected' : ''}${i === focus ? ' focused' : ''}`}
+                onMouseEnter={() => setFocus(i)}
+                onClick={() => pick(o.value)}
+              >
+                <span>{o.label}</span>
+                {o.value === value && (
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                    <path d="M5 12l5 5 9-10" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
 
 const STATUS_LABEL: Record<ParamStatus, string> = { available: 'Available', partial: 'Partial', missing: 'Missing' };
 
@@ -1669,19 +1776,12 @@ export default function TalentIntelligencePage() {
           <section className="ti-panel">
             <div className="ti-panel-head">
               <h2 className="rc-panel-title">Jobseeker Age</h2>
-              <label className="ti-filter">
-                <select value={ageRange} onChange={(e) => setAgeRange(e.target.value)} aria-label="Filter by age group">
-                  <option value="all">All ages</option>
-                  {AGE_BUCKETS.map((b) => (
-                    <option key={b.range} value={b.range}>
-                      {b.range}
-                    </option>
-                  ))}
-                </select>
-                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                  <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </label>
+              <FilterSelect
+                label="Filter by age group"
+                value={ageRange}
+                onChange={setAgeRange}
+                options={[{ value: 'all', label: 'All ages' }, ...AGE_BUCKETS.map((b) => ({ value: b.range, label: b.range }))]}
+              />
             </div>
             <ParamTags panel="Age" show={showTags} />
             <span className="ti-panel-sub">
@@ -1717,32 +1817,18 @@ export default function TalentIntelligencePage() {
             <div className="ti-panel-head">
               <h2 className="rc-panel-title">Jobseeker Location</h2>
               <div className="ti-filters">
-                <label className="ti-filter">
-                  <select value={locState} onChange={(e) => setLocState(e.target.value)} aria-label="Filter by state">
-                    <option value="all">All states</option>
-                    {STATES.map((st) => (
-                      <option key={st.name} value={st.name}>
-                        {st.name}
-                      </option>
-                    ))}
-                  </select>
-                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                    <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </label>
-                <label className="ti-filter">
-                  <select value={locJob} onChange={(e) => setLocJob(e.target.value)} aria-label="Filter by desired job title">
-                    <option value="all">All desired jobs</option>
-                    {JOB_TITLES.map((j) => (
-                      <option key={j.name} value={j.name}>
-                        {j.name}
-                      </option>
-                    ))}
-                  </select>
-                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                    <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </label>
+                <FilterSelect
+                  label="Filter by state"
+                  value={locState}
+                  onChange={setLocState}
+                  options={[{ value: 'all', label: 'All states' }, ...STATES.map((st) => ({ value: st.name, label: st.name }))]}
+                />
+                <FilterSelect
+                  label="Filter by desired job title"
+                  value={locJob}
+                  onChange={setLocJob}
+                  options={[{ value: 'all', label: 'All desired jobs' }, ...JOB_TITLES.map((j) => ({ value: j.name, label: j.name }))]}
+                />
               </div>
             </div>
             <ParamTags panel="Candidate Apply From" show={showTags} />
@@ -1771,19 +1857,12 @@ export default function TalentIntelligencePage() {
           <section className="ti-panel">
             <div className="ti-panel-head">
               <h2 className="rc-panel-title">Jobseeker Years of Experience</h2>
-              <label className="ti-filter">
-                <select value={expBand} onChange={(e) => setExpBand(e.target.value)} aria-label="Filter by years of experience">
-                  <option value="all">All experience</option>
-                  {EXPERIENCE_BANDS.filter((b) => b.min > 0).map((b) => (
-                    <option key={b.label} value={b.label}>
-                      {b.label}
-                    </option>
-                  ))}
-                </select>
-                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                  <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </label>
+              <FilterSelect
+                label="Filter by years of experience"
+                value={expBand}
+                onChange={setExpBand}
+                options={[{ value: 'all', label: 'All experience' }, ...EXPERIENCE_BANDS.filter((b) => b.min > 0).map((b) => ({ value: b.label, label: b.label }))]}
+              />
             </div>
             <ParamTags panel="Years of Experience" show={showTags} />
             <span className="ti-panel-sub">How many years jobseekers have worked; hover a slice for when they started and their past job titles</span>
@@ -1811,19 +1890,12 @@ export default function TalentIntelligencePage() {
           <section className="ti-panel">
             <div className="ti-panel-head">
               <h2 className="rc-panel-title">Jobseeker Desired Industry</h2>
-              <label className="ti-filter">
-                <select value={indPick} onChange={(e) => setIndPick(e.target.value)} aria-label="Filter by industry">
-                  <option value="all">All industries</option>
-                  {industryOptions(records).map((name) => (
-                    <option key={name} value={name}>
-                      {name}
-                    </option>
-                  ))}
-                </select>
-                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                  <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </label>
+              <FilterSelect
+                label="Filter by industry"
+                value={indPick}
+                onChange={setIndPick}
+                options={[{ value: 'all', label: 'All industries' }, ...industryOptions(records).map((name) => ({ value: name, label: name }))]}
+              />
             </div>
             <ParamTags panel="Desired Industry" show={showTags} />
             <span className="ti-panel-sub">Industries your jobseekers want to work in; hover a bar for the jobs they want</span>
@@ -1855,19 +1927,12 @@ export default function TalentIntelligencePage() {
           <section className="ti-panel">
             <div className="ti-panel-head">
               <h2 className="rc-panel-title">Jobseeker Expected Salary</h2>
-              <label className="ti-filter">
-                <select value={salBand} onChange={(e) => setSalBand(e.target.value)} aria-label="Filter by salary range">
-                  <option value="all">All salaries</option>
-                  {SALARY_BANDS.map((b) => (
-                    <option key={b.label} value={b.label}>
-                      {b.label}
-                    </option>
-                  ))}
-                </select>
-                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                  <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </label>
+              <FilterSelect
+                label="Filter by salary range"
+                value={salBand}
+                onChange={setSalBand}
+                options={[{ value: 'all', label: 'All salaries' }, ...SALARY_BANDS.map((b) => ({ value: b.label, label: b.label }))]}
+              />
             </div>
             <ParamTags panel="Expected Salary Range" show={showTags} />
             <span className="ti-panel-sub">Middle of each jobseeker's expected range, as a monthly amount; hover a point for the job titles</span>
@@ -1900,32 +1965,18 @@ export default function TalentIntelligencePage() {
             <div className="ti-panel-head">
               <h2 className="rc-panel-title">Jobseeker Education Level</h2>
               <div className="ti-filters">
-                <label className="ti-filter">
-                  <select value={eduLevel} onChange={(e) => setEduLevel(e.target.value)} aria-label="Filter by education level">
-                    <option value="all">All levels</option>
-                    {EDUCATION_LEVELS.map((level) => (
-                      <option key={level} value={level}>
-                        {level}
-                      </option>
-                    ))}
-                  </select>
-                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                    <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </label>
-                <label className="ti-filter">
-                  <select value={eduFieldValue} onChange={(e) => setEduFieldPick(e.target.value)} aria-label="Filter by field of study">
-                    <option value="all">All fields</option>
-                    {eduFieldOptions.map((field) => (
-                      <option key={field} value={field}>
-                        {field}
-                      </option>
-                    ))}
-                  </select>
-                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                    <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </label>
+                <FilterSelect
+                  label="Filter by education level"
+                  value={eduLevel}
+                  onChange={setEduLevel}
+                  options={[{ value: 'all', label: 'All levels' }, ...EDUCATION_LEVELS.map((level) => ({ value: level, label: level }))]}
+                />
+                <FilterSelect
+                  label="Filter by field of study"
+                  value={eduFieldValue}
+                  onChange={setEduFieldPick}
+                  options={[{ value: 'all', label: 'All fields' }, ...eduFieldOptions.map((field) => ({ value: field, label: field }))]}
+                />
               </div>
             </div>
             <ParamTags panel="Education" show={showTags} />
@@ -2000,19 +2051,12 @@ export default function TalentIntelligencePage() {
           <section className="ti-panel">
             <div className="ti-panel-head">
               <h2 className="rc-panel-title">Jobseeker Job Title</h2>
-              <label className="ti-filter">
-                <select value={jobsState} onChange={(e) => setJobsState(e.target.value)} aria-label="Filter by state">
-                  <option value="all">All states</option>
-                  {STATES.map((st) => (
-                    <option key={st.name} value={st.name}>
-                      {st.name}
-                    </option>
-                  ))}
-                </select>
-                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                  <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </label>
+              <FilterSelect
+                label="Filter by state"
+                value={jobsState}
+                onChange={setJobsState}
+                options={[{ value: 'all', label: 'All states' }, ...STATES.map((st) => ({ value: st.name, label: st.name }))]}
+              />
             </div>
             <ParamTags panel="Job Title Target" show={showTags} />
             <span className="ti-panel-sub">
