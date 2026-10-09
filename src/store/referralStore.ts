@@ -58,6 +58,8 @@ export type CommissionRequest = {
   items: { name: string; lineId: string; label: string; amount: number }[];
   invoice?: CommissionInvoice;
   revisionNote?: string;
+  // Why superadmin rejected the request; shown to the employer like the revision note.
+  rejectNote?: string;
   payment?: { paidAt: string; reference: string; proof?: CommissionInvoice };
 };
 

@@ -854,6 +854,22 @@
   color: #64748b;
 }
 
+.rc-reject-note small {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #b91c1c;
+}
+
+.rc-layout .rc-btn-primary.rc-btn-danger {
+  background: #ef4444;
+}
+
+.rc-layout .rc-btn-primary.rc-btn-danger:disabled {
+  background: #cbd5e1;
+}
+
 .rc-layout .rc-field {
   width: 100%;
   box-sizing: border-box;

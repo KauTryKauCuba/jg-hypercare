@@ -149,7 +149,7 @@ export default function ReferralCodePage() {
   const [adminAction, setAdminAction] = useState<{
     companyId: string;
     requestId: string;
-    mode: 'revision' | 'paid';
+    mode: 'revision' | 'reject' | 'paid';
   } | null>(null);
   const [revisionNote, setRevisionNote] = useState('');
   const [paidDate, setPaidDate] = useState(todayISO());
@@ -174,7 +174,7 @@ export default function ReferralCodePage() {
     setProofFile(file);
   };
 
-  const openAdminAction = (companyId: string, requestId: string, mode: 'revision' | 'paid') => {
+  const openAdminAction = (companyId: string, requestId: string, mode: 'revision' | 'reject' | 'paid') => {
     setRevisionNote('');
     setPaidDate(todayISO());
     setPaymentRef('');
@@ -191,6 +191,13 @@ export default function ReferralCodePage() {
       updateRequest(companyId, requestId, {
         status: 'Needs Revision',
         revisionNote: revisionNote.trim(),
+        decidedAt: formatDate(new Date()),
+      });
+    } else if (mode === 'reject') {
+      if (!revisionNote.trim()) return;
+      updateRequest(companyId, requestId, {
+        status: 'Rejected',
+        rejectNote: revisionNote.trim(),
         decidedAt: formatDate(new Date()),
       });
     } else {
@@ -410,9 +417,7 @@ export default function ReferralCodePage() {
                           </button>
                           <button
                             className="rc-reject-btn"
-                            onClick={() =>
-                              updateRequest(company.id, request.id, { status: 'Rejected', decidedAt: formatDate(new Date()) })
-                            }
+                            onClick={() => openAdminAction(company.id, request.id, 'reject')}
                           >
                             Reject
                           </button>
@@ -434,6 +439,11 @@ export default function ReferralCodePage() {
                               <span>View proof of payment</span>
                             </button>
                           )}
+                        </span>
+                      ) : request.status === 'Rejected' && request.rejectNote ? (
+                        <span className="rc-commission-note rc-reject-note">
+                          on {request.decidedAt}
+                          <small title={request.rejectNote}>{request.rejectNote}</small>
                         </span>
                       ) : (
                         <span className="rc-commission-text">on {request.decidedAt}</span>
@@ -648,7 +658,9 @@ export default function ReferralCodePage() {
             }}
           >
             <div className="rc-modal-header">
-              <h3 className="rc-modal-title">{adminAction.mode === 'revision' ? 'Request Invoice Revision' : 'Mark as Paid'}</h3>
+              <h3 className="rc-modal-title">
+                {adminAction.mode === 'revision' ? 'Request Invoice Revision' : adminAction.mode === 'reject' ? 'Reject Commission Request' : 'Mark as Paid'}
+              </h3>
               <button type="button" className="rc-modal-close" onClick={() => setAdminAction(null)} aria-label="Close">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <path d="M6 6l12 12M18 6L6 18" />
@@ -669,6 +681,24 @@ export default function ReferralCodePage() {
                   value={revisionNote}
                   onChange={(e) => setRevisionNote(e.target.value)}
                   placeholder="e.g. Invoice amount doesn't match RM 1,243.60, please correct it."
+                  autoFocus
+                />
+              </>
+            ) : adminAction.mode === 'reject' ? (
+              <>
+                <p className="rc-modal-desc">
+                  Tell the employer why this request is rejected. They'll see this note on their referral page. A rejected request can't be
+                  resubmitted.
+                </p>
+                <label className="rc-modal-label" htmlFor="rc-reject-note">
+                  Reject note
+                </label>
+                <textarea
+                  id="rc-reject-note"
+                  className="rc-field rc-textarea"
+                  value={revisionNote}
+                  onChange={(e) => setRevisionNote(e.target.value)}
+                  placeholder="e.g. These purchases were refunded, so no commission is due."
                   autoFocus
                 />
               </>
@@ -736,10 +766,10 @@ export default function ReferralCodePage() {
               </button>
               <button
                 type="submit"
-                className="rc-btn-primary"
-                disabled={adminAction.mode === 'revision' ? !revisionNote.trim() : !paymentRef.trim() || !paidDate || !proofFile}
+                className={`rc-btn-primary${adminAction.mode === 'reject' ? ' rc-btn-danger' : ''}`}
+                disabled={adminAction.mode === 'paid' ? !paymentRef.trim() || !paidDate || !proofFile : !revisionNote.trim()}
               >
-                {adminAction.mode === 'revision' ? 'Send to Employer' : 'Mark as Paid'}
+                {adminAction.mode === 'revision' ? 'Send to Employer' : adminAction.mode === 'reject' ? 'Reject Request' : 'Mark as Paid'}
               </button>
             </div>
           </form>

@@ -969,6 +969,12 @@ label.re-breakdown-row {
   font-weight: 600;
 }
 
+.re-revision-note.re-reject-note {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
 .re-revision-note.re-revision-note-modal {
   margin: 0 0 14px;
 }

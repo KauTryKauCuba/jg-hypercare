@@ -499,6 +499,11 @@ export default function ReferralEmployerPage() {
                               <b>JobGiga:</b> {q.revisionNote}
                             </div>
                           )}
+                          {q.status === 'Rejected' && q.rejectNote && (
+                            <div className="re-revision-note re-reject-note">
+                              <b>JobGiga rejected this request:</b> {q.rejectNote}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
