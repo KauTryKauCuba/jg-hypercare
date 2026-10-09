@@ -66,6 +66,7 @@ function buildMapping(s: OnboardingState): Mapping[] {
     { section: 'Basic Info', label: 'Date of Birth', source: 'date_of_birth', filled: !!s.dob, ai: 'date_of_birth' },
     { section: 'Basic Info', label: 'Earliest Availability', source: 'availability', filled: !!s.availability, ai: 'availability' },
     { section: 'Basic Info', label: 'Location', filled: false, note: 'Onboarding only asks for desired work location, not where the jobseeker lives' },
+    { section: 'Basic Info', label: 'Desired Industry', source: 'desired_industry', filled: !!s.desiredIndustry, note: 'Asked in onboarding under Job Title; the AI resume asks for job categories instead' },
     { section: 'Basic Info', label: 'Profile Photo', filled: false, ai: 'profile_photo', aiNote: 'From the Change button on the AI resume profile page' },
     { section: 'Professional Summary', label: 'Description', filled: false },
     { section: 'Job Preferences', label: 'Desired Job Title', source: 'job_title', filled: !!s.jobTitle.trim(), ai: 'job_title' },
@@ -125,6 +126,7 @@ const ICONS = {
   briefcase: icon('M4 8h16v11H4zM9 8V5h6v3M4 13h16'),
   cake: icon('M4 21h16M5 21v-7h14v7M8 14V9M12 14V9M16 14V9M8 6v.01M12 6v.01M16 6v.01'),
   clock: icon('M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM3.5 20c0-3.4 2.9-5.5 6.5-5.5 1.2 0 2.3.2 3.2.7M16 15l4 4M20 15l-4 4'),
+  industry: icon('M3 21h18M5 21V10l5 3V10l5 3V5h4v16M8 17h1M12 17h1M16 17h1'),
   pin: icon('M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12zM12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z'),
   bag: icon('M4 8h16v11H4zM9 8V5h6v3'),
   book: icon('M12 6c-2-1.5-5-2-8-1.5V19c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V4.5c-3-.5-6 0-8 1.5zM12 6v14.5'),
@@ -400,6 +402,7 @@ export default function JobseekerDashboardPage() {
     { label: 'Date of Birth', value: formatDate(s.dob), icon: ICONS.cake },
     { label: 'Earliest Availability', value: s.availability, icon: ICONS.clock },
     { label: 'Location', value: '', icon: ICONS.pin },
+    { label: 'Desired Industry', value: s.desiredIndustry, icon: ICONS.industry },
   ];
 
   const uploadInput = (

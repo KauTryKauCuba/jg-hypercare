@@ -11,6 +11,7 @@ export type OnboardingState = {
   eligibility: string | null;
   nationality: string;
   jobTitle: string;
+  desiredIndustry: string;
   workArrangement: 'On-Site' | 'Hybrid' | 'Remote';
   location: string;
   jobType: string;
@@ -40,6 +41,7 @@ export const defaults = (): OnboardingState => ({
   eligibility: null,
   nationality: '',
   jobTitle: '',
+  desiredIndustry: '',
   workArrangement: 'On-Site',
   location: '',
   jobType: '',

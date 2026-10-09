@@ -18,6 +18,54 @@
   min-width: 0;
 }
 
+.ti-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ti-filters {
+  display: flex;
+  gap: 8px;
+}
+
+.ti-filter {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  color: #64748b;
+}
+
+.ti-filter select {
+  appearance: none;
+  height: 36px;
+  padding: 0 34px 0 14px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  color: #141b2e;
+  cursor: pointer;
+}
+
+.ti-filter select:hover {
+  border-color: #07bcca;
+}
+
+.ti-filter select:focus-visible {
+  outline: 2px solid #0b8a92;
+  outline-offset: 2px;
+}
+
+.ti-filter svg {
+  position: absolute;
+  right: 12px;
+  pointer-events: none;
+}
+
 .ti-panel-sub {
   font-size: 17.5px;
   color: #64748b;
@@ -824,6 +872,14 @@
   bottom: calc(100% + 8px);
 }
 
+.ti-ind .ti-loc-row {
+  grid-template-columns: 190px 1fr 44px;
+}
+
+.ti-ind .ti-loc-tip {
+  left: 206px;
+}
+
 .ti-loc-legend {
   margin: 4px 0 0;
 }
@@ -901,6 +957,15 @@
 
 .rc-layout .ti-pie-row.is-active {
   background: #e6f6fa;
+}
+
+.ti-pie-legend.is-compact {
+  gap: 2px;
+}
+
+.rc-layout .ti-pie-legend.is-compact .ti-pie-row {
+  height: 24px;
+  font-size: 14px;
 }
 
 .ti-pie-row.is-dim {

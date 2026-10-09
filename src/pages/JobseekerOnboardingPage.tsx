@@ -181,6 +181,13 @@ export function SelectField({
 
 const digitsOnly = (v: string) => v.replace(/[^\d]/g, '');
 
+const INDUSTRIES = [
+  'Advertising & Media', 'Agriculture & Environment', 'Business', 'Construction & Engineering', 'Consumer Products',
+  'Education', 'Energy & Utilities', 'Finance', 'Healthcare', 'Hospitality & Tourism', 'Human Resources',
+  'Information Technology', 'Legal', 'Manufacturing & Industrial', 'Non-Profit', 'Real Estate', 'Security Activities',
+  'Service/Retail Housing/Maintenance', 'Sport & Recreation', 'Transport & Logistics', 'Web 3.0', 'Others',
+];
+
 const JOB_TITLES = [
   'Graphic Designer', 'UI/UX Designer', 'Software Engineer', 'Web Developer', 'Data Analyst', 'Project Manager',
   'Marketing Executive', 'Sales Executive', 'Account Executive', 'Accountant', 'HR Executive', 'Admin Assistant',
@@ -359,6 +366,7 @@ export default function JobseekerOnboardingPage() {
   ];
   const preferenceParams: Param[] = [
     { name: 'Job Title', key: 'job_title', value: s.jobTitle.trim() },
+    { name: 'Desired Industry', key: 'desired_industry', value: s.desiredIndustry },
     { name: 'Work Arrangement', key: 'work_arrangement', value: s.workArrangement },
     { name: 'Work Location', key: 'desired_work_location', value: s.location },
     { name: 'Job Type', key: 'desired_job_type', value: s.jobType },
@@ -512,6 +520,11 @@ export default function JobseekerOnboardingPage() {
               <div className="jo-field jo-field-first">
                 <label className="jo-label" htmlFor="jo-job-title">Job Title<span className="jo-required">*</span></label>
                 <input id="jo-job-title" className="jo-input" placeholder="Graphic Designer" value={s.jobTitle} onChange={(e) => updateOnboarding({ jobTitle: e.target.value })} />
+              </div>
+
+              <div className="jo-field">
+                <label className="jo-label" htmlFor="jo-industry">Desired Industry<span className="jo-required">*</span></label>
+                <SelectField id="jo-industry" value={s.desiredIndustry} placeholder="Select industry" options={INDUSTRIES} onChange={(v) => updateOnboarding({ desiredIndustry: v })} />
               </div>
 
               <div className="jo-field">

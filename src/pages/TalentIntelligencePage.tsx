@@ -79,18 +79,34 @@ const ageOf = (dob: string, today = new Date()) => {
   return today.getFullYear() - d.getFullYear() - (beforeBirthday ? 1 : 0);
 };
 
-const ageStats = (applicants: { dob: string | null }[]) => {
-  const ages = applicants.flatMap((a) => (a.dob ? [ageOf(a.dob)] : []));
-  const groups: AgeGroup[] = AGE_BUCKETS.map((b) => ({ ...b, total: ages.filter((age) => age >= b.min && age <= b.max).length }));
+// With an age group picked, every single age in it gets its own point (18, 19, 20 ... 24).
+const ageStats = (applicants: { dob: string | null }[], range = 'all') => {
+  const allAges = applicants.flatMap((a) => (a.dob ? [ageOf(a.dob)] : []));
+  const bucket = AGE_BUCKETS.find((b) => b.range === range);
+  const ages = bucket ? allAges.filter((age) => age >= bucket.min && age <= bucket.max) : allAges;
+  const buckets = bucket
+    ? Array.from({ length: (bucket.max === Infinity ? Math.max(bucket.min + 9, ...ages) : bucket.max) - bucket.min + 1 }, (_, i) => {
+        const age = bucket.min + i;
+        return { range: `${age} years`, min: age, max: age };
+      })
+    : AGE_BUCKETS;
+  const groups: AgeGroup[] = buckets.map((b) => ({ ...b, total: ages.filter((age) => age >= b.min && age <= b.max).length }));
   const all = groups.reduce((sum, g) => sum + g.total, 0);
+  // Shares that always add up to exactly 100 (largest remainder rounding).
+  const raw = groups.map((g) => (all === 0 ? 0 : (g.total / all) * 100));
+  const pct = raw.map(Math.floor);
+  const short = all === 0 ? 0 : 100 - pct.reduce((x, y) => x + y, 0);
+  const order = raw.map((v, i) => [v - Math.floor(v), i] as const).sort((x, y) => y[0] - x[0]);
+  for (let k = 0; k < short; k++) pct[order[k][1]]++;
   return {
     groups,
+    total: bucket ? ages.length : applicants.length,
+    notProvided: applicants.length - allAges.length,
+    shareLabel: bucket ? `of jobseekers aged ${bucket.range.replace(' years', '')}` : 'of jobseekers with an age',
     all,
-    total: applicants.length,
-    notProvided: applicants.length - ages.length,
     average: ages.length === 0 ? null : Math.round(ages.reduce((sum, a) => sum + a, 0) / ages.length),
     largest: all === 0 ? null : groups.reduce((a, b) => (b.total > a.total ? b : a)).range,
-    shareOf: (g: AgeGroup) => (all === 0 ? 0 : Math.round((g.total / all) * 100)),
+    shareOf: (g: AgeGroup) => pct[groups.indexOf(g)] ?? 0,
   };
 };
 
@@ -104,52 +120,6 @@ const JOB_TITLES = [
   { name: 'Customer Service', color: '#ec4899', weight: 0.12 },
   { name: 'Accountant', color: '#eab308', weight: 0.09 },
 ];
-
-type Application = { id: number; name: string; jobTitle: string; appliedAt: Date };
-
-const dayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const ordinal = (n: number) => {
-  const tens = n % 100;
-  if (tens >= 11 && tens <= 13) return `${n}th`;
-  return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`;
-};
-const longDate = (d: Date) => `${ordinal(d.getDate())} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-
-const jobTitleStats = (applications: Application[], now: Date) => {
-  const days = Array.from({ length: CHART_DAYS }, (_, i) => {
-    const d = new Date(now);
-    d.setDate(now.getDate() - (CHART_DAYS - 1 - i));
-    return d;
-  });
-  const labels = days.map((d, i) =>
-    i === 0 ? `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}` : String(d.getDate()).padStart(2, '0'),
-  );
-  const series =
-    applications.length === 0
-      ? []
-      : JOB_TITLES.map((job) => ({
-          name: job.name,
-          color: job.color,
-          values: days.map((d) => applications.filter((a) => a.jobTitle === job.name && dayKey(a.appliedAt) === dayKey(d)).length),
-        }));
-  const dates = days.map((d) => `${WEEKDAYS[d.getDay()]}, ${longDate(d)}`);
-  const totals = days.map((_, i) => series.reduce((sum, sr) => sum + sr.values[i], 0));
-  const total = totals.reduce((sum, t) => sum + t, 0);
-  const top = series.reduce<(typeof series)[number] | null>(
-    (best, sr) => (best === null || sr.values.reduce((a, v) => a + v, 0) > best.values.reduce((a, v) => a + v, 0) ? sr : best),
-    null,
-  );
-  const busiest = total === 0 ? -1 : totals.indexOf(Math.max(...totals));
-  const summary = {
-    total,
-    topTitle: top && total > 0 ? top.name : null,
-    busiestDay: busiest < 0 ? null : `${ordinal(days[busiest].getDate())} ${MONTHS[days[busiest].getMonth()]}`,
-    dailyAverage: Math.round(total / CHART_DAYS),
-  };
-  return { labels, dates, series, summary };
-};
 
 // Rounds the y-axis up to a clean number split into 4 steps (e.g. 0, 2, 4, 6, 8).
 const axisMax = (values: number[], steps = [1, 2, 5, 10, 20, 50]) => {
@@ -170,7 +140,6 @@ const STATES = [
   { name: 'Melaka', weight: 0.04 },
   { name: 'Kedah', weight: 0.03 },
 ];
-const SHOWN_STATES = ['Selangor', 'Kuala Lumpur', 'Johor', 'Penang'];
 const NO_LOCATION_EVERY = 16;
 
 // Which jobs each age group tends to apply for, so the Age and Job Title Target panels tell the same story.
@@ -195,6 +164,9 @@ type DummyRecord = {
   experience: ExperienceEntry;
   education: Education | null;
   device: Device;
+  industry: string | null;
+  salary: Salary | null;
+  desiredJob: string | null;
 };
 
 // Roles that lead to each job title, junior to senior; the one shown depends on years of experience.
@@ -275,6 +247,84 @@ const dummyExperience = (id: number, age: number | null, jobTitle: string, now: 
   return { title: EXPERIENCE_TITLES[jobTitle]?.[level] ?? jobTitle, from, to, years };
 };
 
+// Desired industry picked in onboarding, leaning on the job each jobseeker is after.
+const INDUSTRY_BY_JOB: Record<string, [string, number][]> = {
+  'Graphic Designer': [['Advertising & Media', 0.55], ['Information Technology', 0.2], ['Consumer Products', 0.15], ['Education', 0.1]],
+  'Software Engineer': [['Information Technology', 0.65], ['Finance', 0.15], ['Web 3.0', 0.1], ['Healthcare', 0.1]],
+  'Data Analyst': [['Information Technology', 0.4], ['Finance', 0.35], ['Healthcare', 0.15], ['Consumer Products', 0.1]],
+  'Marketing Executive': [['Advertising & Media', 0.4], ['Consumer Products', 0.35], ['Hospitality & Tourism', 0.15], ['Real Estate', 0.1]],
+  'HR Manager': [['Human Resources', 0.6], ['Manufacturing & Industrial', 0.2], ['Finance', 0.1], ['Healthcare', 0.1]],
+  'Customer Service': [['Hospitality & Tourism', 0.4], ['Transport & Logistics', 0.3], ['Consumer Products', 0.2], ['Healthcare', 0.1]],
+  Accountant: [['Finance', 0.7], ['Manufacturing & Industrial', 0.15], ['Real Estate', 0.15]],
+};
+const NO_INDUSTRY_INFO_EVERY = 18;
+
+// Own seed per applicant, so the industry never changes any other dummy value.
+const dummyIndustry = (id: number, jobTitle: string): string | null => {
+  if (id % NO_INDUSTRY_INFO_EVERY === 9) return null;
+  let seed = (id + 29) * 2654435769;
+  seed = (seed * 1664525 + 1013904223) % 4294967296;
+  let r = seed / 4294967296;
+  const options = INDUSTRY_BY_JOB[jobTitle] ?? INDUSTRY_BY_JOB['Customer Service'];
+  return (options.find(([, w]) => (r -= w) < 0) ?? options[0])[0];
+};
+
+// Desired Job Title from Job Preferences: usually the kind of job they apply for, sometimes the next role they're aiming at.
+const DESIRED_SWITCH: Record<string, string> = {
+  'Graphic Designer': 'Marketing Executive',
+  'Software Engineer': 'Data Analyst',
+  'Data Analyst': 'Software Engineer',
+  'Marketing Executive': 'Graphic Designer',
+  'HR Manager': 'Accountant',
+  'Customer Service': 'Marketing Executive',
+  Accountant: 'Data Analyst',
+};
+const NO_DESIRED_JOB_EVERY = 19;
+
+// Own seed per jobseeker, so the desired job never changes any other dummy value.
+const dummyDesiredJob = (id: number, jobTitle: string): string | null => {
+  if (id % NO_DESIRED_JOB_EVERY === 6) return null;
+  let seed = (id + 53) * 2246822519;
+  seed = (seed * 1664525 + 1013904223) % 4294967296;
+  return seed / 4294967296 < 0.8 ? jobTitle : (DESIRED_SWITCH[jobTitle] ?? jobTitle);
+};
+
+// Expected salary range as the jobseeker typed it in Job Preferences (currency is always MYR in the dummy data).
+type SalaryType = 'Monthly' | 'Daily' | 'Hourly' | 'Yearly';
+type Salary = { from: number; to: number; type: SalaryType };
+// Multiply a daily, hourly or yearly figure by this to get a monthly one (22 working days, 8 hours a day).
+const TO_MONTHLY: Record<SalaryType, number> = { Monthly: 1, Daily: 22, Hourly: 176, Yearly: 1 / 12 };
+// Starting monthly expectation for each job and how much it rises per year of experience.
+const SALARY_BY_JOB: Record<string, [number, number]> = {
+  'Graphic Designer': [2200, 150],
+  'Software Engineer': [3500, 300],
+  'Data Analyst': [3000, 250],
+  'Marketing Executive': [2500, 180],
+  'HR Manager': [3000, 250],
+  'Customer Service': [1700, 90],
+  Accountant: [2800, 230],
+};
+const NO_SALARY_INFO_EVERY = 20;
+
+// Own seed per applicant, so the salary never changes any other dummy value.
+const dummySalary = (id: number, jobTitle: string, experience: ExperienceEntry, age: number | null): Salary | null => {
+  if (id % NO_SALARY_INFO_EVERY === 13) return null;
+  let seed = (id + 41) * 2246822507;
+  const rand = () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return seed / 4294967296;
+  };
+  const years = experience === 'none' ? 0 : experience ? experience.years : Math.max(0, (age ?? 28) - 23);
+  const [base, perYear] = SALARY_BY_JOB[jobTitle] ?? SALARY_BY_JOB['Customer Service'];
+  const monthlyFrom = (base + perYear * Math.min(years, 20)) * (0.85 + rand() * 0.3);
+  const monthlyTo = monthlyFrom * (1.2 + rand() * 0.3);
+  const r = rand();
+  const type: SalaryType = r < 0.86 ? 'Monthly' : r < 0.93 ? 'Hourly' : r < 0.97 ? 'Daily' : 'Yearly';
+  const step = { Monthly: 100, Daily: 10, Hourly: 1, Yearly: 1000 }[type];
+  const inType = (monthly: number) => Math.max(step, Math.round(monthly / TO_MONTHLY[type] / step) * step);
+  return { from: inType(monthlyFrom), to: inType(monthlyTo), type };
+};
+
 // One record per dummy applicant (one application each), shared by every panel so all totals agree:
 // their age, home state, the job they applied for and when. A fixed seed keeps it identical on every load.
 const buildDummyRecords = (now: Date): DummyRecord[] => {
@@ -306,6 +356,8 @@ const buildDummyRecords = (now: Date): DummyRecord[] => {
       ),
     );
     const minuteOfDay = daysAgo === 0 ? Math.floor(rand() * minutesSoFarToday) : 8 * 60 + Math.floor(rand() * 15 * 60);
+    const experience = dummyExperience(id, age, jobTitle, now);
+    const desiredJob = dummyDesiredJob(id, jobTitle);
     const appliedAt = new Date(startOfToday.getTime() - daysAgo * 86_400_000 + minuteOfDay * 60_000);
     return {
       id,
@@ -314,9 +366,13 @@ const buildDummyRecords = (now: Date): DummyRecord[] => {
       state: id % NO_LOCATION_EVERY === 5 ? null : state,
       jobTitle,
       appliedAt,
-      experience: dummyExperience(id, age, jobTitle, now),
+      experience,
       education: dummyEducation(id, age, jobTitle, now),
       device: dummyDevice(id, age),
+      // What they want to do next drives the industry and salary they ask for.
+      industry: dummyIndustry(id, desiredJob ?? jobTitle),
+      salary: dummySalary(id, desiredJob ?? jobTitle, experience, age),
+      desiredJob,
     };
   });
 };
@@ -362,7 +418,84 @@ const educationStats = (records: { education: Education | null }[]) => {
   };
 };
 
-const experienceStats = (records: { id: number; name: string; experience: ExperienceEntry }[]) => {
+// With a band picked, every single year in it gets its own slice (e.g. 3, 4, 5 yrs).
+const yearsLabel = (y: number) => `${y} ${y === 1 ? 'yr' : 'yrs'}`;
+
+const experienceYearStats = (
+  records: { id: number; name: string; experience: ExperienceEntry }[],
+  picked: (typeof EXPERIENCE_BANDS)[number],
+) => {
+  const inBand = records.flatMap((r) =>
+    r.experience && r.experience !== 'none' && r.experience.years >= picked.min && r.experience.years <= picked.max ? [r.experience] : [],
+  );
+  const known = records.filter((r) => r.experience !== null).length;
+  // Open-ended band (20+): only the years someone actually has, so the pie stays readable.
+  const years =
+    picked.max === Infinity
+      ? [...new Set(inBand.map((e) => e.years))].sort((a, b) => a - b)
+      : Array.from({ length: picked.max - picked.min + 1 }, (_, i) => picked.min + i);
+  const bands: ExperienceBand[] = years.map((y) => {
+    const inYear = inBand.filter((e) => e.years === y);
+    const titleCounts = new Map<string, number>();
+    for (const e of inYear) titleCounts.set(e.title, (titleCounts.get(e.title) ?? 0) + 1);
+    const froms = inYear.map((e) => e.from);
+    return {
+      label: yearsLabel(y),
+      count: inYear.length,
+      titles: [...titleCounts.entries()].sort((x, z) => z[1] - x[1]).slice(0, 3),
+      started: froms.length === 0 ? null : ([Math.min(...froms), Math.max(...froms)] as [number, number]),
+      current: inYear.filter((e) => e.to === null).length,
+    };
+  });
+  const top = bands.reduce<ExperienceBand | null>((best, b) => (best === null || b.count > best.count ? b : best), null);
+  return {
+    bands,
+    provided: inBand.length,
+    rows: [],
+    fresh: 0,
+    mostCommon: inBand.length === 0 ? null : top!.label,
+    notProvided: records.length - known,
+    average: inBand.length === 0 ? null : Math.round((inBand.reduce((sum, e) => sum + e.years, 0) / inBand.length) * 10) / 10,
+    most: inBand.length === 0 ? null : Math.max(...inBand.map((e) => e.years)),
+  };
+};
+
+// Fields of study in the data, for the filter dropdown (only those at the picked level, if any).
+const educationFieldOptions = (records: { education: Education | null }[], level: string) =>
+  [...new Set(records.flatMap((r) => (r.education && (level === 'all' || r.education.level === level) ? [r.education.field] : [])))].sort((a, b) =>
+    a.localeCompare(b),
+  );
+
+// One education level split by field of study (tooltip: top institutions), or, with a field
+// picked too, split by institution (tooltip: when they finished).
+const educationFieldStats = (records: { education: Education | null }[], level: string, field = 'all') => {
+  const inLevel = records.flatMap((r) =>
+    r.education && r.education.level === level && (field === 'all' || r.education.field === field) ? [r.education] : [],
+  );
+  const known = records.filter((r) => r.education !== null).length;
+  const color = EDUCATION_COLORS[EDUCATION_LEVELS.indexOf(level as EducationLevel)];
+  const groupOf = (e: Education) => (field === 'all' ? e.field : e.institution);
+  const rows: IndustryRow[] = [...new Set(inLevel.map(groupOf))]
+    .map((label) => {
+      const inRow = inLevel.filter((e) => groupOf(e) === label);
+      const tip = field === 'all' ? topCounts(inRow.map((e) => e.institution)) : topCounts(inRow.map((e) => `Finished ${e.to}`));
+      return { label, color, count: inRow.length, tip };
+    })
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  const institutions = topCounts(inLevel.map((e) => e.institution));
+  return {
+    rows,
+    provided: inLevel.length,
+    notProvided: records.length - known,
+    topField: rows[0]?.label ?? null,
+    share: known === 0 ? null : Math.round((inLevel.length / known) * 100),
+    topInstitution: institutions[0]?.[0] ?? null,
+  };
+};
+
+const experienceStats = (records: { id: number; name: string; experience: ExperienceEntry }[], band = 'all') => {
+  const picked = EXPERIENCE_BANDS.find((b) => b.label === band && b.min > 0);
+  if (picked) return experienceYearStats(records, picked);
   const withRole = records
     .flatMap((r) => (r.experience && r.experience !== 'none' ? [{ id: r.id, name: r.name, ...r.experience }] : []))
     .sort((a, b) => b.years - a.years || a.name.localeCompare(b.name));
@@ -388,27 +521,34 @@ const experienceStats = (records: { id: number; name: string; experience: Experi
     provided,
     rows: withRole,
     fresh,
+    mostCommon: null as string | null,
     notProvided: records.length - provided,
     average: provided === 0 ? null : Math.round((totalYears / provided) * 10) / 10,
     most: withRole[0]?.years ?? null,
   };
 };
 
+// Desired job titles plus a grey "not provided" slot, so every split adds up to its total.
+const DESIRED_NOT_PROVIDED = 'Desired job not provided';
+const DESIRED_SERIES = [...JOB_TITLES, { name: DESIRED_NOT_PROVIDED, color: '#cbd5e1', weight: 0 }];
+const desiredOf = (r: { desiredJob: string | null }) => r.desiredJob ?? DESIRED_NOT_PROVIDED;
+
 type LocationRow = { state: string; includes: string[]; counts: number[]; total: number };
 
-const locationStats = (applications: { state: string | null; jobTitle: string }[]) => {
-  const located = applications.filter((a) => a.state !== null);
-  const others = STATES.map((st) => st.name).filter((n) => !SHOWN_STATES.includes(n));
+const locationStats = (applications: { state: string | null; desiredJob: string | null }[], state = 'all') => {
+  const located = applications.filter((a) => a.state !== null && (state === 'all' || a.state === state));
   const rowFor = (state: string, includes: string[]): LocationRow => {
     const inRow = located.filter((a) => includes.includes(a.state!));
-    const counts = JOB_TITLES.map((p) => inRow.filter((a) => a.jobTitle === p.name).length);
+    const counts = DESIRED_SERIES.map((p) => inRow.filter((a) => desiredOf(a) === p.name).length);
     return { state, includes, counts, total: inRow.length };
   };
-  const rows = [...SHOWN_STATES.map((st) => rowFor(st, [st])), rowFor('Others', others)];
+  // Every state on its own row, most jobseekers first.
+  const rows = (state === 'all' ? STATES.map((st) => rowFor(st.name, [st.name])) : [rowFor(state, [state])]).sort((a, b) => b.total - a.total);
   const byState = new Map<string, number>();
   for (const a of located) byState.set(a.state!, (byState.get(a.state!) ?? 0) + 1);
   const topState = [...byState.entries()].sort((x, y) => y[1] - x[1])[0]?.[0] ?? null;
-  return { rows, located: located.length, notProvided: applications.length - located.length, topState, statesCovered: byState.size };
+  const notProvided = applications.filter((a) => a.state === null).length;
+  return { rows, located: located.length, notProvided, topState, statesCovered: byState.size };
 };
 
 const DEVICES = [
@@ -464,16 +604,160 @@ const deviceStats = (records: { device: Device }[]) => {
   return DEVICES.map((d, i) => ({ ...d, count: counts[i], pct: pct[i] }));
 };
 
+const INDUSTRY_COLORS = [
+  '#07bcca', '#0b8a92', '#6366f1', '#a855f7', '#ec4899', '#f59e0b', '#3b82f6', '#14b8a6',
+  '#f97316', '#84cc16', '#e11d48', '#8b5cf6', '#0ea5e9', '#d946ef', '#22c55e', '#eab308',
+  '#64748b', '#fb7185', '#2dd4bf', '#7c3aed', '#facc15', '#94a3b8',
+];
+
+// label = industry, or a job title when one industry is picked; tip = top 3 job titles (or states) inside it.
+type IndustryRow = { label: string; color: string; count: number; tip: [string, number][] };
+
+const topCounts = (values: string[]) => {
+  const counts = new Map<string, number>();
+  for (const v of values) counts.set(v, (counts.get(v) ?? 0) + 1);
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+};
+
+// Every industry on its own row; with one picked, its jobseekers split by job title instead.
+const industryStats = (records: { industry: string | null; desiredJob: string | null; state: string | null }[], industry = 'all') => {
+  const known = records.filter((r) => r.industry !== null);
+  const totals = new Map<string, number>();
+  for (const r of known) totals.set(r.industry!, (totals.get(r.industry!) ?? 0) + 1);
+  const ranked = [...totals.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name]) => name);
+  const notProvided = records.length - known.length;
+  if (industry !== 'all') {
+    const inIndustry = known.filter((r) => r.industry === industry);
+    const rows: IndustryRow[] = DESIRED_SERIES.map((j) => {
+      const inJob = inIndustry.filter((r) => desiredOf(r) === j.name);
+      return { label: j.name, color: j.color, count: inJob.length, tip: topCounts(inJob.flatMap((r) => (r.state ? [r.state] : []))) };
+    })
+      .filter((row) => row.count > 0)
+      .sort((a, b) => b.count - a.count);
+    return {
+      rows,
+      provided: inIndustry.length,
+      notProvided,
+      top: rows[0]?.label ?? null,
+      topShare: known.length === 0 ? null : Math.round((inIndustry.length / known.length) * 100),
+      covered: rows.filter((row) => row.label !== DESIRED_NOT_PROVIDED).length,
+    };
+  }
+  const rows: IndustryRow[] = ranked.map((name, k) => {
+    const inRow = known.filter((r) => r.industry === name);
+    return { label: name, color: INDUSTRY_COLORS[k % INDUSTRY_COLORS.length], count: inRow.length, tip: topCounts(inRow.flatMap((r) => (r.desiredJob ? [r.desiredJob] : []))) };
+  });
+  const top = ranked[0] ?? null;
+  return {
+    rows,
+    provided: known.length,
+    notProvided,
+    top,
+    topShare: top === null ? null : Math.round((totals.get(top)! / known.length) * 100),
+    covered: totals.size,
+  };
+};
+
+// Industries that appear in the data, for the filter dropdown.
+const industryOptions = (records: { industry: string | null }[]) =>
+  [...new Set(records.flatMap((r) => (r.industry ? [r.industry] : [])))].sort((a, b) => a.localeCompare(b));
+
+const SALARY_BANDS = [
+  { label: '< RM 2k', min: 0, max: 2000 },
+  { label: 'RM 2–3k', min: 2000, max: 3000 },
+  { label: 'RM 3–5k', min: 3000, max: 5000 },
+  { label: 'RM 5–8k', min: 5000, max: 8000 },
+  { label: 'RM 8–12k', min: 8000, max: 12000 },
+  { label: 'RM 12k+', min: 12000, max: Infinity },
+];
+const SALARY_COLORS = ['#07bcca', '#0b8a92', '#6366f1', '#a855f7', '#ec4899', '#f59e0b'];
+
+type SalaryBand = { label: string; min: number; max: number; count: number; pct: number; jobs: [string, number][] };
+
+const rm = (n: number) => `RM ${Math.round(n).toLocaleString('en-MY')}`;
+
+const kLabel = (n: number) => String(Math.round(n / 100) / 10);
+
+// Smaller ranges inside one band: RM 500 steps up to RM 5k, RM 1k steps up to RM 12k, RM 2k steps above.
+const salarySteps = (band: (typeof SALARY_BANDS)[number], monthlies: number[]) => {
+  const step = band.max <= 5000 ? 500 : band.max <= 12000 ? 1000 : 2000;
+  // At least two ranges, so the graph always draws a line.
+  const start = band.min > 0 ? band.min : Math.min(band.max - step * 2, Math.floor(Math.min(band.max, ...monthlies) / step) * step);
+  const end = band.max !== Infinity ? band.max : Math.max(band.min + step * 2, Math.ceil(Math.max(band.min, ...monthlies) / step) * step);
+  return Array.from({ length: Math.round((end - start) / step) }, (_, i) => {
+    const min = start + i * step;
+    // The first range of the lowest band also takes anyone below it.
+    return { label: `RM ${kLabel(min)}–${kLabel(min + step)}k`, min: band.min === 0 && i === 0 ? 0 : min, max: min + step };
+  });
+};
+
+// With a band picked, it splits into smaller ranges (e.g. RM 3–5k into RM 3–3.5k, 3.5–4k, 4–4.5k, 4.5–5k).
+const salaryStats = (records: { salary: Salary | null; desiredJob: string | null }[], band = 'all') => {
+  // Each jobseeker counts once, at the middle of their range converted to a monthly amount.
+  const all = records.flatMap((r) =>
+    r.salary ? [{ desiredJob: r.desiredJob, type: r.salary.type, monthly: ((r.salary.from + r.salary.to) / 2) * TO_MONTHLY[r.salary.type] }] : [],
+  );
+  const picked = SALARY_BANDS.find((b) => b.label === band);
+  const known = picked ? all.filter((k) => k.monthly >= picked.min && k.monthly < picked.max) : all;
+  const ranges = picked ? salarySteps(picked, known.map((k) => k.monthly)) : SALARY_BANDS;
+  const bands: SalaryBand[] = ranges.map((b) => {
+    const inBand = known.filter((k) => k.monthly >= b.min && k.monthly < b.max);
+    const jobs = new Map<string, number>();
+    for (const k of inBand) if (k.desiredJob) jobs.set(k.desiredJob, (jobs.get(k.desiredJob) ?? 0) + 1);
+    return { ...b, count: inBand.length, pct: 0, jobs: [...jobs.entries()].sort((x, y) => y[1] - x[1]).slice(0, 3) };
+  });
+  // Shares that always add up to exactly 100 (largest remainder rounding).
+  if (known.length > 0) {
+    const raw = bands.map((b) => (b.count / known.length) * 100);
+    raw.forEach((v, i) => (bands[i].pct = Math.floor(v)));
+    const short = 100 - bands.reduce((sum, b) => sum + b.pct, 0);
+    const order = raw.map((v, i) => [v - Math.floor(v), i] as const).sort((x, y) => y[0] - x[0]);
+    for (let k = 0; k < short; k++) bands[order[k][1]].pct++;
+  }
+  const sorted = known.map((k) => k.monthly).sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const median = sorted.length === 0 ? null : sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  const top = bands.reduce<SalaryBand | null>((best, b) => (best === null || b.count > best.count ? b : best), null);
+  return {
+    bands,
+    provided: known.length,
+    notProvided: records.length - all.length,
+    median,
+    mostCommon: known.length === 0 ? null : top!.label,
+    monthlyShare: known.length === 0 ? null : Math.round((known.filter((k) => k.type === 'Monthly').length / known.length) * 100),
+  };
+};
+
+// Every desired job title on its own bar, optionally for one state only.
+// Tooltip: top states, or with a state picked, the industries those jobseekers want.
+const desiredJobStats = (records: { desiredJob: string | null; state: string | null; industry: string | null }[], state = 'all') => {
+  const inState = state === 'all' ? records : records.filter((r) => r.state === state);
+  const known = inState.filter((r) => r.desiredJob !== null);
+  const rows: IndustryRow[] = JOB_TITLES.map((j) => {
+    const inJob = known.filter((r) => r.desiredJob === j.name);
+    const tip = state === 'all' ? inJob.flatMap((r) => (r.state ? [r.state] : [])) : inJob.flatMap((r) => (r.industry ? [r.industry] : []));
+    return { label: j.name, color: j.color, count: inJob.length, tip: topCounts(tip) };
+  })
+    .filter((row) => row.count > 0)
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  return {
+    rows,
+    provided: known.length,
+    notProvided: inState.length - known.length,
+    top: rows[0]?.label ?? null,
+    covered: rows.length,
+  };
+};
+
 type ParamStatus = 'available' | 'partial' | 'missing';
 type Param = { panel: string; label: string; key: string; source: string; status: ParamStatus; note?: string };
 
 // Every value this page needs, where it would come from, and whether JobGiga collects it today.
 const PARAMS: Param[] = [
   { panel: 'Age', label: 'Age', key: 'date_of_birth', source: 'Jobseeker profile', status: 'available', note: 'Collected in onboarding and AI resume' },
-  { panel: 'Age', label: 'Applicants', key: 'application_id', source: 'Application', status: 'available' },
-  { panel: 'Job Title Target', label: 'Job title', key: 'job_title', source: 'Job posting', status: 'available', note: 'The job applied for, not the desired job_title on the jobseeker dashboard' },
-  { panel: 'Job Title Target', label: 'Applied date', key: 'applied_at', source: 'Application', status: 'available', note: 'Saved when the jobseeker applies; not part of the jobseeker dashboard' },
-  { panel: 'Candidate Apply From', label: 'Job title applied for', key: 'job_title', source: 'Job posting', status: 'available', note: 'Same job titles as Job Title Target' },
+  { panel: 'Age', label: 'Jobseekers', key: 'jobseeker_id', source: 'Jobseeker profile', status: 'available' },
+  { panel: 'Job Title Target', label: 'Desired job title', key: 'job_title', source: 'Jobseeker dashboard · Job Preferences', status: 'available', note: 'Desired Job Title; collected in onboarding and AI resume' },
+  { panel: 'Candidate Apply From', label: 'Desired job title', key: 'job_title', source: 'Jobseeker dashboard · Job Preferences', status: 'available', note: 'Same Desired Job Title as the Jobseeker Job Title card' },
   { panel: 'Candidate Apply From', label: 'Location (where the jobseeker is from)', key: 'location', source: 'Jobseeker dashboard · Basic Info', status: 'missing', note: 'Not in onboarding and not in AI resume yet' },
   { panel: 'Years of Experience', label: 'Experience job title', key: 'recent_job_title', source: 'Jobseeker dashboard · Working Experience', status: 'available', note: 'Collected in onboarding and AI resume' },
   { panel: 'Years of Experience', label: 'Years of experience', key: 'working_period_from + working_period_to', source: 'Jobseeker dashboard · Working Experience', status: 'available', note: 'Collected in onboarding and AI resume; years are worked out from the working periods (onboarding also asks start_working_since)' },
@@ -481,6 +765,11 @@ const PARAMS: Param[] = [
   { panel: 'Education', label: 'Field of study', key: 'field_of_study', source: 'Jobseeker dashboard · Education', status: 'missing', note: 'Not in onboarding and not in AI resume yet' },
   { panel: 'Education', label: 'Institution name', key: 'institution_name', source: 'Jobseeker dashboard · Education', status: 'missing', note: 'Not in onboarding and not in AI resume yet' },
   { panel: 'Education', label: 'Study period', key: 'study_period', source: 'Jobseeker dashboard · Education', status: 'missing', note: 'Not in onboarding and not in AI resume yet' },
+  { panel: 'Desired Industry', label: 'Desired industry', key: 'desired_industry', source: 'Jobseeker dashboard · Basic Info', status: 'available', note: 'Collected in onboarding under Job Title; not in AI resume yet (it asks for job categories)' },
+  { panel: 'Expected Salary Range', label: 'Currency', key: 'salary_currency', source: 'Jobseeker dashboard · Job Preferences', status: 'available', note: 'Collected in onboarding and AI resume' },
+  { panel: 'Expected Salary Range', label: 'Salary from', key: 'salary_from', source: 'Jobseeker dashboard · Job Preferences', status: 'available', note: 'Collected in onboarding and AI resume' },
+  { panel: 'Expected Salary Range', label: 'Salary to', key: 'salary_to', source: 'Jobseeker dashboard · Job Preferences', status: 'available', note: 'Collected in onboarding and AI resume' },
+  { panel: 'Expected Salary Range', label: 'Salary type', key: 'salary_type', source: 'Jobseeker dashboard · Job Preferences', status: 'available', note: 'Monthly, Daily, Hourly or Yearly; collected in onboarding and AI resume' },
   { panel: 'Desktop vs Mobile Applied', label: 'Device', key: 'device_type', source: 'Not collected', status: 'missing', note: 'Needs to be recorded from the browser when the jobseeker applies' },
 ];
 
@@ -537,7 +826,19 @@ const smoothPath = (pts: [number, number][]) =>
 // One colour per age group, youngest to oldest; the curve blends between them.
 const AGE_COLORS = ['#07bcca', '#0b8a92', '#6366f1', '#a855f7', '#ec4899'];
 
-const AgeAreaChart = ({ groups, shareOf }: { groups: AgeGroup[]; shareOf: (g: AgeGroup) => number }) => {
+const AgeAreaChart = ({
+  groups,
+  shareOf,
+  shareLabel,
+  color,
+}: {
+  groups: AgeGroup[];
+  shareOf: (g: AgeGroup) => number;
+  shareLabel: string;
+  color?: string;
+}) => {
+  // One colour per age group, or the picked group's colour for every single age.
+  const colorAt = (i: number) => color ?? AGE_COLORS[i];
   const [active, setActive] = useState<number | null>(null);
   const w = 600;
   const h = 300;
@@ -566,7 +867,7 @@ const AgeAreaChart = ({ groups, shareOf }: { groups: AgeGroup[]; shareOf: (g: Ag
           <defs>
             <linearGradient id="ti-age-line" gradientUnits="userSpaceOnUse" x1={0} y1={0} x2={w} y2={0}>
               {pts.map(([px], i) => (
-                <stop key={i} offset={px / w} stopColor={AGE_COLORS[i]} />
+                <stop key={i} offset={px / w} stopColor={colorAt(i)} />
               ))}
             </linearGradient>
             <linearGradient id="ti-age-fade" x1="0" y1="0" x2="0" y2="1">
@@ -590,7 +891,7 @@ const AgeAreaChart = ({ groups, shareOf }: { groups: AgeGroup[]; shareOf: (g: Ag
         {!empty && active !== null && (
           <span
             className="ti-area-guide"
-            style={{ left: leftOf(active), top: pts[active][1], height: h - pts[active][1], '--c': AGE_COLORS[active] } as CSSProperties}
+            style={{ left: leftOf(active), top: pts[active][1], height: h - pts[active][1], '--c': colorAt(active) } as CSSProperties}
           />
         )}
         {!empty &&
@@ -598,7 +899,7 @@ const AgeAreaChart = ({ groups, shareOf }: { groups: AgeGroup[]; shareOf: (g: Ag
             <span
               key={g.range}
               className={`ti-area-dot${i === peak ? ' is-peak' : ''}${i === active ? ' is-active' : ''}`}
-              style={{ left: leftOf(i), top: pts[i][1], '--c': AGE_COLORS[i] } as CSSProperties}
+              style={{ left: leftOf(i), top: pts[i][1], '--c': colorAt(i) } as CSSProperties}
             >
               {i === peak && active === null && <b className="ti-area-peak">Peak · {g.total}</b>}
             </span>
@@ -617,9 +918,11 @@ const AgeAreaChart = ({ groups, shareOf }: { groups: AgeGroup[]; shareOf: (g: Ag
           >
             <b>{groups[active].range}</b>
             <span>
-              <strong>{groups[active].total.toLocaleString()}</strong> applicants
+              <strong>{groups[active].total.toLocaleString()}</strong> jobseekers
             </span>
-            <span>{shareOf(groups[active])}% of applicants with an age</span>
+            <span>
+              {shareOf(groups[active])}% {shareLabel}
+            </span>
             <span className="ti-area-tip-rank">
               {active === peak ? 'Largest group' : `#${rank(active)} of ${groups.length} groups`}
             </span>
@@ -632,7 +935,7 @@ const AgeAreaChart = ({ groups, shareOf }: { groups: AgeGroup[]; shareOf: (g: Ag
                 key={g.range}
                 type="button"
                 className="ti-area-hit"
-                aria-label={`${g.range}: ${g.total} applicants, ${shareOf(g)}%`}
+                aria-label={`${g.range}: ${g.total} jobseekers, ${shareOf(g)}%`}
                 onMouseEnter={() => setActive(i)}
                 onFocus={() => setActive(i)}
                 onBlur={() => setActive(null)}
@@ -647,7 +950,7 @@ const AgeAreaChart = ({ groups, shareOf }: { groups: AgeGroup[]; shareOf: (g: Ag
             <span
               key={g.range}
               className={i === active ? 'is-active' : ''}
-              style={{ '--c': AGE_COLORS[i] } as CSSProperties}
+              style={{ '--c': colorAt(i) } as CSSProperties}
               onMouseEnter={() => !empty && setActive(i)}
             >
               <b>{g.range.replace(' years', '')}</b>
@@ -660,154 +963,13 @@ const AgeAreaChart = ({ groups, shareOf }: { groups: AgeGroup[]; shareOf: (g: Ag
   );
 };
 
-type Series = { name: string; color: string; values: number[] };
-
-const StackedColumnChart = ({ labels, dates, series }: { labels: string[]; dates: string[]; series: Series[] }) => {
-  const [active, setActive] = useState<number | null>(null);
-  const [focus, setFocus] = useState<string | null>(null);
-  const w = 600;
-  const h = 275;
-  const totals = labels.map((_, i) => series.reduce((sum, s) => sum + s.values[i], 0));
-  const max = axisMax(totals, [1, 2, 4, 5, 8, 10, 15, 20, 25, 50]);
-  const ticks = [4, 3, 2, 1, 0].map((i) => (max / 4) * i);
-  const slot = w / labels.length;
-  const barWidth = slot * 0.6;
-  const y = (v: number) => h - (v / max) * h;
-  const empty = series.length === 0;
-  const average = totals.reduce((sum, t) => sum + t, 0) / labels.length;
-  const busiest = totals.indexOf(Math.max(...totals));
-  const dim = (i: number, name: string) => (active !== null && active !== i) || (focus !== null && focus !== name);
-  const compare = (i: number) => {
-    if (i === busiest) return 'Busiest day';
-    const diff = Math.round(totals[i] - average);
-    if (diff === 0) return `Same as the ${labels.length}-day average`;
-    return `${Math.abs(diff)} ${diff > 0 ? 'above' : 'below'} the ${labels.length}-day average (${Math.round(average)})`;
-  };
-  const onLeft = (i: number) => i < labels.length / 2;
-  // The legend-focused job is drawn first so it sits on the baseline, making its trend easy to compare.
-  const stackOrder = focus === null ? series : [...series.filter((s) => s.name === focus), ...series.filter((s) => s.name !== focus)];
-  return (
-    <>
-      <div className="ti-chart ti-chart-job">
-        <div className="ti-chart-y">
-          {ticks.map((v) => (
-            <span key={v} style={{ top: `${(1 - v / max) * 100}%` }}>
-              {v}
-            </span>
-          ))}
-        </div>
-        <div className="ti-chart-body" onMouseLeave={() => setActive(null)}>
-          <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="ti-chart-svg">
-            {ticks.map((v) => (
-              <line key={`h${v}`} x1={0} x2={w} y1={y(v)} y2={y(v)} className="ti-grid-line" />
-            ))}
-            {active !== null && <rect x={active * slot} y={0} width={slot} height={h} className="ti-col-band" />}
-            {labels.map((_, i) => {
-              let base = 0;
-              return stackOrder.map((s) => {
-                const value = s.values[i];
-                if (value === 0) return null;
-                const top = base + value;
-                const rect = (
-                  <rect
-                    key={`${s.name}-${i}`}
-                    x={i * slot + (slot - barWidth) / 2}
-                    y={y(top)}
-                    width={barWidth}
-                    height={y(base) - y(top)}
-                    fill={s.color}
-                    className="ti-col-rect"
-                    opacity={dim(i, s.name) ? 0.25 : 1}
-                  />
-                );
-                base = top;
-                return rect;
-              });
-            })}
-          </svg>
-          {!empty && active !== null && (
-            <div
-              className="ti-area-tip ti-col-tip"
-              style={
-                onLeft(active)
-                  ? { left: `${(((active + 1) * slot) / w) * 100}%`, top: 0, transform: 'translateX(4px)' }
-                  : { left: `${((active * slot) / w) * 100}%`, top: 0, transform: 'translateX(calc(-100% - 4px))' }
-              }
-              role="status"
-            >
-              <b>{dates[active]}</b>
-              <span>
-                <strong>{totals[active]}</strong> applications
-              </span>
-              <div className="ti-col-tip-rows">
-                {series.map((s) => (
-                  <span key={s.name} className={focus !== null && focus !== s.name ? 'is-dim' : ''}>
-                    <i style={{ background: s.color }} />
-                    {s.name}
-                    <em>{s.values[active]}</em>
-                  </span>
-                ))}
-              </div>
-              <span className="ti-area-tip-rank">{compare(active)}</span>
-            </div>
-          )}
-          {!empty && (
-            <div className="ti-area-hits" style={{ height: h }}>
-              {labels.map((label, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  className="ti-area-hit"
-                  aria-label={`${dates[i]}: ${totals[i]} applications`}
-                  onMouseEnter={() => setActive(i)}
-                  onFocus={() => setActive(i)}
-                  onBlur={() => setActive(null)}
-                  onClick={() => setActive((a) => (a === i ? null : i))}
-                  data-label={label}
-                />
-              ))}
-            </div>
-          )}
-          {empty && <span className="ti-chart-empty">No job title data yet</span>}
-          <div className="ti-chart-x ti-col-x" style={{ gridTemplateColumns: `repeat(${labels.length}, 1fr)` }}>
-            {labels.map((d, i) => (
-              <span key={i} className={i === active ? 'is-active' : ''}>
-                {d}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-      {!empty && (
-        <div className="ti-legend">
-          {series.map((s) => (
-            <button
-              key={s.name}
-              type="button"
-              className={`ti-legend-item${focus !== null && focus !== s.name ? ' is-dim' : ''}`}
-              onMouseEnter={() => setFocus(s.name)}
-              onMouseLeave={() => setFocus(null)}
-              onFocus={() => setFocus(s.name)}
-              onBlur={() => setFocus(null)}
-            >
-              <i style={{ background: s.color }} />
-              {s.name}
-              <em>{s.values.reduce((sum, v) => sum + v, 0)}</em>
-            </button>
-          ))}
-        </div>
-      )}
-    </>
-  );
-};
-
 const LocationChart = ({ rows, located }: { rows: LocationRow[]; located: number }) => {
   const [active, setActive] = useState<number | null>(null);
   const [focus, setFocus] = useState<string | null>(null);
   const max = axisMax(rows.map((r) => r.total));
   const ticks = [0, 1, 2, 3, 4].map((i) => (max / 4) * i);
   const empty = located === 0;
-  const order = focus === null ? JOB_TITLES : [...JOB_TITLES.filter((p) => p.name === focus), ...JOB_TITLES.filter((p) => p.name !== focus)];
+  const order = focus === null ? DESIRED_SERIES : [...DESIRED_SERIES.filter((p) => p.name === focus), ...DESIRED_SERIES.filter((p) => p.name !== focus)];
   const dimRow = (i: number) => active !== null && active !== i;
   const share = (n: number) => (located === 0 ? 0 : Math.round((n / located) * 100));
   return (
@@ -818,7 +980,7 @@ const LocationChart = ({ rows, located }: { rows: LocationRow[]; located: number
           <button
             type="button"
             className="ti-loc-track"
-            aria-label={`${row.state}: ${row.total} applicants`}
+            aria-label={`${row.state}: ${row.total} jobseekers`}
             onMouseEnter={() => setActive(i)}
             onFocus={() => setActive(i)}
             onBlur={() => setActive(null)}
@@ -826,7 +988,7 @@ const LocationChart = ({ rows, located }: { rows: LocationRow[]; located: number
           >
             <span className="ti-loc-stack" style={{ width: `${(row.total / max) * 100}%` }}>
               {order.map((p) => {
-                const n = row.counts[JOB_TITLES.indexOf(p)];
+                const n = row.counts[DESIRED_SERIES.indexOf(p)];
                 return n === 0 ? null : (
                   <i
                     key={p.name}
@@ -841,11 +1003,11 @@ const LocationChart = ({ rows, located }: { rows: LocationRow[]; located: number
             <div className={`ti-area-tip ti-loc-tip${i >= rows.length - 2 ? ' is-above' : ''}`} role="status">
               <b>{row.state}</b>
               <span>
-                <strong>{row.total}</strong> applicants · {share(row.total)}% of applicants with a location
+                <strong>{row.total}</strong> jobseekers · {share(row.total)}% of jobseekers with a location
               </span>
               {row.includes.length > 1 && <span className="ti-area-tip-rank">{row.includes.join(', ')}</span>}
               <div className="ti-col-tip-rows">
-                {JOB_TITLES.map((p, j) => ({ ...p, n: row.counts[j] }))
+                {DESIRED_SERIES.map((p, j) => ({ ...p, n: row.counts[j] }))
                   .sort((a, b) => b.n - a.n)
                   .map((p) => (
                     <span key={p.name} className={focus !== null && focus !== p.name ? 'is-dim' : ''}>
@@ -874,7 +1036,7 @@ const LocationChart = ({ rows, located }: { rows: LocationRow[]; located: number
         <span className="ti-loc-empty">No location data yet</span>
       ) : (
         <div className="ti-legend ti-loc-legend">
-          {JOB_TITLES.map((p, j) => (
+          {DESIRED_SERIES.map((p, j) => (
             <button
               key={p.name}
               type="button"
@@ -895,14 +1057,99 @@ const LocationChart = ({ rows, located }: { rows: LocationRow[]; located: number
   );
 };
 
+const IndustryChart = ({
+  rows,
+  provided,
+  shareLabel,
+  emptyText = 'No industry data yet',
+}: {
+  rows: IndustryRow[];
+  provided: number;
+  shareLabel: string;
+  emptyText?: string;
+}) => {
+  const [active, setActive] = useState<number | null>(null);
+  const max = axisMax(rows.map((r) => r.count), [1, 2, 4, 5, 8, 10, 15, 20, 25, 50]);
+  const ticks = [0, 1, 2, 3, 4].map((i) => (max / 4) * i);
+  const share = (n: number) => (provided === 0 ? 0 : Math.round((n / provided) * 100));
+  if (provided === 0) return <span className="ti-loc-empty">{emptyText}</span>;
+  return (
+    <div className="ti-loc ti-ind" onMouseLeave={() => setActive(null)}>
+      {rows.map((row, i) => (
+        <div key={row.label} className={`ti-loc-row${active !== null && active !== i ? ' is-dim' : ''}${active === i ? ' is-active' : ''}`}>
+          <span className="ti-loc-label">{row.label}</span>
+          <button
+            type="button"
+            className="ti-loc-track"
+            aria-label={`${row.label}: ${row.count} jobseekers`}
+            onMouseEnter={() => setActive(i)}
+            onFocus={() => setActive(i)}
+            onBlur={() => setActive(null)}
+            onClick={() => setActive((a) => (a === i ? null : i))}
+          >
+            <span className="ti-loc-stack" style={{ width: `${(row.count / max) * 100}%` }}>
+              <i style={{ flexGrow: 1, background: row.color }} />
+            </span>
+          </button>
+          <b className="ti-loc-total">{row.count}</b>
+          {active === i && (
+            <div className={`ti-area-tip ti-loc-tip${i >= rows.length - 2 && rows.length > 2 ? ' is-above' : ''}`} role="status">
+              <b>{row.label}</b>
+              <span>
+                <strong>{row.count}</strong> jobseekers · {share(row.count)}% {shareLabel}
+              </span>
+              <div className="ti-col-tip-rows">
+                {row.tip.map(([name, n]) => (
+                  <span key={name}>
+                    <i style={{ background: row.color }} />
+                    {name}
+                    <em>{n}</em>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+      <div className="ti-loc-row ti-loc-axis-row">
+        <span />
+        <div className="ti-loc-axis">
+          {ticks.map((v) => (
+            <span key={v} style={{ left: `${(v / max) * 100}%` }}>
+              {v}
+            </span>
+          ))}
+        </div>
+        <span />
+      </div>
+    </div>
+  );
+};
+
 const EXPERIENCE_COLORS = ['#07bcca', '#0b8a92', '#6366f1', '#a855f7', '#ec4899', '#f59e0b'];
+// Extra colours for when a band is split into single years (up to ~20 slices).
+const YEAR_COLORS = [
+  ...EXPERIENCE_COLORS,
+  '#3b82f6', '#14b8a6', '#f97316', '#84cc16', '#e11d48', '#8b5cf6', '#0ea5e9', '#d946ef',
+  '#22c55e', '#eab308', '#64748b', '#fb7185', '#2dd4bf', '#7c3aed', '#facc15',
+];
 
 const ExperienceChart = ({ bands, provided }: { bands: ExperienceBand[]; provided: number }) => {
   const [active, setActive] = useState<number | null>(null);
   const size = 260;
   const r = 120;
   const c = size / 2;
-  const share = (n: number) => (provided === 0 ? 0 : Math.round((n / provided) * 100));
+  const many = bands.length > EXPERIENCE_COLORS.length;
+  const palette = many ? YEAR_COLORS : EXPERIENCE_COLORS;
+  // Legend rows shrink when there are lots of single years, so the list stays beside the pie.
+  const rowStep = bands.length > 8 ? 26 : 37;
+  // Shares that always add up to exactly 100 (largest remainder rounding).
+  const raw = bands.map((b) => (provided === 0 ? 0 : (b.count / provided) * 100));
+  const pct = raw.map(Math.floor);
+  const short = provided === 0 ? 0 : 100 - pct.reduce((x, y) => x + y, 0);
+  const order = raw.map((v, k) => [v - Math.floor(v), k] as const).sort((x, y) => y[0] - x[0]);
+  for (let k = 0; k < short; k++) pct[order[k][1]]++;
+  const share = (n: number, k: number) => (n === 0 ? 0 : pct[k]);
   if (provided === 0) {
     return (
       <div className="ti-pie">
@@ -927,7 +1174,7 @@ const ExperienceChart = ({ bands, provided }: { bands: ExperienceBand[]; provide
       sweep >= Math.PI * 2 - 1e-6
         ? `M ${c} ${c - r} A ${r} ${r} 0 1 1 ${c - 0.01} ${c - r} Z`
         : `M ${c} ${c} L ${x1} ${y1} A ${r} ${r} 0 ${sweep > Math.PI ? 1 : 0} 1 ${x2} ${y2} Z`;
-    return { ...b, i, path, mid, color: EXPERIENCE_COLORS[i], sweep };
+    return { ...b, i, path, mid, color: palette[i % palette.length], sweep };
   });
   const a = active === null ? null : slices[active];
   return (
@@ -949,13 +1196,13 @@ const ExperienceChart = ({ bands, provided }: { bands: ExperienceBand[]; provide
               onMouseEnter={() => setActive(sl.i)}
               onClick={() => setActive((x) => (x === sl.i ? null : sl.i))}
             >
-              <title>{`${sl.label}: ${sl.count} (${share(sl.count)}%)`}</title>
+              <title>{`${sl.label}: ${sl.count} (${share(sl.count, sl.i)}%)`}</title>
             </path>
           ),
         )}
       </svg>
       <div className="ti-pie-side">
-        <div className="ti-pie-legend">
+        <div className={`ti-pie-legend${rowStep < 37 ? ' is-compact' : ''}`}>
           {slices.map((sl) => (
             <button
               key={sl.label}
@@ -969,7 +1216,7 @@ const ExperienceChart = ({ bands, provided }: { bands: ExperienceBand[]; provide
               <i style={{ background: sl.color }} />
               <span>{sl.label}</span>
               <b>{sl.count}</b>
-              <em>{share(sl.count)}%</em>
+              <em>{share(sl.count, sl.i)}%</em>
             </button>
           ))}
         </div>
@@ -978,14 +1225,14 @@ const ExperienceChart = ({ bands, provided }: { bands: ExperienceBand[]; provide
             className="ti-area-tip ti-pie-tip"
             style={
               a.i < slices.length / 2
-                ? { top: `calc(${(a.i + 1) * 37}px + 6px)` }
-                : { bottom: `calc(${(slices.length - a.i) * 37}px + 6px)` }
+                ? { top: `calc(${(a.i + 1) * rowStep}px + 6px)` }
+                : { bottom: `calc(${(slices.length - a.i) * rowStep}px + 6px)` }
             }
             role="status"
           >
             <b>{a.label}</b>
             <span>
-              <strong>{a.count}</strong> applicants · {share(a.count)}%
+              <strong>{a.count}</strong> jobseekers · {share(a.count, a.i)}%
             </span>
             {a.started ? (
               <>
@@ -1071,7 +1318,7 @@ const EducationChart = ({ bars, provided }: { bars: EducationBar[]; provided: nu
           >
             <b>{a.level}</b>
             <span>
-              <strong>{a.count}</strong> applicants · {share(a.count)}%
+              <strong>{a.count}</strong> jobseekers · {share(a.count)}%
             </span>
             {a.graduated && (
               <span>
@@ -1098,7 +1345,7 @@ const EducationChart = ({ bars, provided }: { bars: EducationBar[]; provided: nu
                 key={b.level}
                 type="button"
                 className="ti-area-hit"
-                aria-label={`${b.level}: ${b.count} applicants`}
+                aria-label={`${b.level}: ${b.count} jobseekers`}
                 onMouseEnter={() => setActive(i)}
                 onFocus={() => setActive(i)}
                 onBlur={() => setActive(null)}
@@ -1113,6 +1360,140 @@ const EducationChart = ({ bars, provided }: { bars: EducationBar[]; provided: nu
             <span key={b.level} className={i === active ? 'is-active' : ''}>
               <b>{b.level}</b>
               {b.count} · {share(b.count)}%
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const SalaryChart = ({ bands, provided, color }: { bands: SalaryBand[]; provided: number; color?: string }) => {
+  // One colour per band, or the picked band's colour for all its smaller ranges.
+  const colorAt = (i: number) => color ?? SALARY_COLORS[i];
+  const [active, setActive] = useState<number | null>(null);
+  const w = 600;
+  const h = 260;
+  const max = axisMax(bands.map((b) => b.count), [1, 2, 4, 5, 8, 10, 15, 20, 25, 50]);
+  const ticks = [4, 3, 2, 1, 0].map((i) => (max / 4) * i);
+  const slot = w / bands.length;
+  const y = (v: number) => h - (v / max) * h;
+  const pts = bands.map((b, i): [number, number] => [(i + 0.5) * slot, y(b.count)]);
+  const line = smoothPath(pts);
+  const area = `${line} L ${pts[pts.length - 1][0]} ${h} L ${pts[0][0]} ${h} Z`;
+  const empty = provided === 0;
+  const peak = empty ? -1 : bands.reduce((best, b, i) => (b.count > bands[best].count ? i : best), 0);
+  const rank = (i: number) => bands.filter((b) => b.count > bands[i].count).length + 1;
+  const leftOf = (i: number) => `${(pts[i][0] / w) * 100}%`;
+  const a = active === null ? null : bands[active];
+  return (
+    <div className="ti-chart ti-chart-edu">
+      <div className="ti-chart-y">
+        {ticks.map((v) => (
+          <span key={v} style={{ top: `${(1 - v / max) * 100}%` }}>
+            {v}
+          </span>
+        ))}
+      </div>
+      <div className="ti-chart-body" onMouseLeave={() => setActive(null)}>
+        <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="ti-chart-svg">
+          <defs>
+            <linearGradient id="ti-sal-line" gradientUnits="userSpaceOnUse" x1={0} y1={0} x2={w} y2={0}>
+              {pts.map(([px], i) => (
+                <stop key={i} offset={px / w} stopColor={colorAt(i)} />
+              ))}
+            </linearGradient>
+            <linearGradient id="ti-sal-fade" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.5" />
+              <stop offset="100%" stopColor="#ffffff" stopOpacity="0.05" />
+            </linearGradient>
+            <mask id="ti-sal-mask" maskUnits="userSpaceOnUse" x={0} y={0} width={w} height={h}>
+              <rect x={0} y={0} width={w} height={h} fill="url(#ti-sal-fade)" />
+            </mask>
+          </defs>
+          {ticks.map((v) => (
+            <line key={`h${v}`} x1={0} x2={w} y1={y(v)} y2={y(v)} className="ti-grid-line" />
+          ))}
+          {!empty && (
+            <>
+              <path d={area} fill="url(#ti-sal-line)" mask="url(#ti-sal-mask)" />
+              <path d={line} fill="none" stroke="url(#ti-sal-line)" strokeWidth={3} vectorEffect="non-scaling-stroke" />
+            </>
+          )}
+        </svg>
+        {!empty && active !== null && (
+          <span
+            className="ti-area-guide"
+            style={{ left: leftOf(active), top: pts[active][1], height: h - pts[active][1], '--c': colorAt(active) } as CSSProperties}
+          />
+        )}
+        {!empty &&
+          bands.map((b, i) => (
+            <span
+              key={b.label}
+              className={`ti-area-dot${i === peak ? ' is-peak' : ''}${i === active ? ' is-active' : ''}`}
+              style={{ left: leftOf(i), top: pts[i][1], '--c': colorAt(i) } as CSSProperties}
+            >
+              {i === peak && active === null && <b className="ti-area-peak">Peak · {b.count}</b>}
+            </span>
+          ))}
+        {a && !empty && (
+          <div
+            className="ti-area-tip"
+            style={{
+              left: leftOf(active!),
+              top: pts[active!][1],
+              transform: `translate(${active === 0 ? '-12%' : active === bands.length - 1 ? '-88%' : '-50%'}, ${
+                pts[active!][1] < 130 ? '22px' : 'calc(-100% - 18px)'
+              })`,
+            }}
+            role="status"
+          >
+            <b>{a.max === Infinity ? `${rm(a.min)} and above` : a.min === 0 ? `Below ${rm(a.max)}` : `${rm(a.min)} – ${rm(a.max)}`} a month</b>
+            <span>
+              <strong>{a.count}</strong> jobseekers · {a.pct}%
+            </span>
+            <span className="ti-area-tip-rank">{active === peak ? 'Most common range' : `#${rank(active!)} of ${bands.length} ranges`}</span>
+            {a.jobs.length > 0 && (
+              <div className="ti-col-tip-rows">
+                {a.jobs.map(([job, n]) => (
+                  <span key={job}>
+                    <i style={{ background: colorAt(active!) }} />
+                    {job}
+                    <em>{n}</em>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {!empty && (
+          <div className="ti-area-hits" style={{ height: h }}>
+            {bands.map((b, i) => (
+              <button
+                key={b.label}
+                type="button"
+                className="ti-area-hit"
+                aria-label={`${b.label}: ${b.count} jobseekers, ${b.pct}%`}
+                onMouseEnter={() => setActive(i)}
+                onFocus={() => setActive(i)}
+                onBlur={() => setActive(null)}
+                onClick={() => setActive((x) => (x === i ? null : i))}
+              />
+            ))}
+          </div>
+        )}
+        {empty && <span className="ti-chart-empty">No salary data yet</span>}
+        <div className="ti-chart-x ti-age-x" style={{ gridTemplateColumns: `repeat(${bands.length}, 1fr)` }}>
+          {bands.map((b, i) => (
+            <span
+              key={b.label}
+              className={i === active ? 'is-active' : ''}
+              style={{ '--c': colorAt(i) } as CSSProperties}
+              onMouseEnter={() => !empty && setActive(i)}
+            >
+              <b>{b.label}</b>
+              {b.count} · {b.pct}%
             </span>
           ))}
         </div>
@@ -1185,7 +1566,7 @@ const DeviceAgeChart = ({ columns }: { columns: DeviceAgeColumn[] }) => {
             >
               <b>{a.range} years</b>
               <span>
-                <strong>{a.total}</strong> applicants
+                <strong>{a.total}</strong> jobseekers
               </span>
               <div className="ti-col-tip-rows">
                 {DEVICES.map((d, j) => (
@@ -1221,7 +1602,7 @@ const DeviceAgeChart = ({ columns }: { columns: DeviceAgeColumn[] }) => {
             {columns.map((c, i) => (
               <span key={c.range} className={i === active ? 'is-active' : ''}>
                 <b>{c.range}</b>
-                {c.total} applicants
+                {c.total} jobseekers
               </span>
             ))}
           </div>
@@ -1248,11 +1629,27 @@ export default function TalentIntelligencePage() {
   const [useDummy, setUseDummy] = useState(false);
   const [now] = useState(() => new Date());
   const records = useMemo(() => (useDummy ? buildDummyRecords(now) : []), [useDummy, now]);
-  const age = ageStats(records);
-  const jobs = jobTitleStats(records, now);
-  const loc = locationStats(records);
-  const exp = experienceStats(records);
+  const [ageRange, setAgeRange] = useState('all');
+  const age = ageStats(records, ageRange);
+  const [jobsState, setJobsState] = useState('all');
+  const desired = desiredJobStats(records, jobsState);
+  const [locState, setLocState] = useState('all');
+  const [locJob, setLocJob] = useState('all');
+  const loc = locationStats(locJob === 'all' ? records : records.filter((r) => r.desiredJob === locJob), locState);
+  const [expBand, setExpBand] = useState('all');
+  const exp = experienceStats(records, expBand);
   const edu = educationStats(records);
+  const [eduLevel, setEduLevel] = useState('all');
+  const [eduFieldPick, setEduFieldPick] = useState('all');
+  const eduFieldOptions = educationFieldOptions(records, eduLevel);
+  // A field that doesn't exist at the newly picked level falls back to all fields.
+  const eduFieldValue = eduFieldOptions.includes(eduFieldPick) ? eduFieldPick : 'all';
+  const eduField = educationFieldStats(records, eduLevel, eduFieldValue);
+  const eduByField = eduFieldValue === 'all' ? edu : educationStats(records.filter((r) => r.education?.field === eduFieldValue));
+  const [indPick, setIndPick] = useState('all');
+  const ind = industryStats(records, indPick);
+  const [salBand, setSalBand] = useState('all');
+  const sal = salaryStats(records, salBand);
   const devices = deviceStats(records);
   const devicesByAge = deviceByAge(records, now);
   const [reportOpen, setReportOpen] = useState(false);
@@ -1270,9 +1667,86 @@ export default function TalentIntelligencePage() {
 
         <div className="ti-grid">
           <section className="ti-panel">
-            <h2 className="rc-panel-title">Candidate Apply From</h2>
+            <div className="ti-panel-head">
+              <h2 className="rc-panel-title">Jobseeker Age</h2>
+              <label className="ti-filter">
+                <select value={ageRange} onChange={(e) => setAgeRange(e.target.value)} aria-label="Filter by age group">
+                  <option value="all">All ages</option>
+                  {AGE_BUCKETS.map((b) => (
+                    <option key={b.range} value={b.range}>
+                      {b.range}
+                    </option>
+                  ))}
+                </select>
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </label>
+            </div>
+            <ParamTags panel="Age" show={showTags} />
+            <span className="ti-panel-sub">
+              Understand the age distribution of your talent pool to identify workforce trends and hiring opportunities.
+            </span>
+            <AgeAreaChart
+              groups={age.groups}
+              shareOf={age.shareOf}
+              shareLabel={age.shareLabel}
+              color={ageRange === 'all' ? undefined : AGE_COLORS[AGE_BUCKETS.findIndex((b) => b.range === ageRange)]}
+            />
+            <div className="ti-age-stats">
+              <div className="ti-card ti-age-stat">
+                <span>Total jobseekers</span>
+                <b>{age.total.toLocaleString()}</b>
+              </div>
+              <div className="ti-card ti-age-stat">
+                <span>Average age</span>
+                <b>{age.average ?? '-'}</b>
+              </div>
+              <div className="ti-card ti-age-stat">
+                <span>{ageRange === 'all' ? 'Largest group' : 'Most common age'}</span>
+                <b>{age.largest ?? '-'}</b>
+              </div>
+              <div className="ti-card ti-age-stat">
+                <span>Age not provided</span>
+                <b>{age.notProvided}</b>
+              </div>
+            </div>
+          </section>
+
+          <section className="ti-panel">
+            <div className="ti-panel-head">
+              <h2 className="rc-panel-title">Jobseeker Location</h2>
+              <div className="ti-filters">
+                <label className="ti-filter">
+                  <select value={locState} onChange={(e) => setLocState(e.target.value)} aria-label="Filter by state">
+                    <option value="all">All states</option>
+                    {STATES.map((st) => (
+                      <option key={st.name} value={st.name}>
+                        {st.name}
+                      </option>
+                    ))}
+                  </select>
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                    <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </label>
+                <label className="ti-filter">
+                  <select value={locJob} onChange={(e) => setLocJob(e.target.value)} aria-label="Filter by desired job title">
+                    <option value="all">All desired jobs</option>
+                    {JOB_TITLES.map((j) => (
+                      <option key={j.name} value={j.name}>
+                        {j.name}
+                      </option>
+                    ))}
+                  </select>
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                    <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </label>
+              </div>
+            </div>
             <ParamTags panel="Candidate Apply From" show={showTags} />
-            <span className="ti-panel-sub">Where your applicants are from, and which job they applied for</span>
+            <span className="ti-panel-sub">Where your jobseekers are from, and the job they want</span>
             <LocationChart rows={loc.rows} located={loc.located} />
             <div className="ti-age-stats">
               <div className="ti-card ti-age-stat">
@@ -1295,53 +1769,279 @@ export default function TalentIntelligencePage() {
           </section>
 
           <section className="ti-panel">
-            <h2 className="rc-panel-title">Job Title Target</h2>
-            <ParamTags panel="Job Title Target" show={showTags} />
-            <span className="ti-panel-sub">Monitor and analyze performance to optimize your spend across products</span>
-            <StackedColumnChart labels={jobs.labels} dates={jobs.dates} series={jobs.series} />
+            <div className="ti-panel-head">
+              <h2 className="rc-panel-title">Jobseeker Years of Experience</h2>
+              <label className="ti-filter">
+                <select value={expBand} onChange={(e) => setExpBand(e.target.value)} aria-label="Filter by years of experience">
+                  <option value="all">All experience</option>
+                  {EXPERIENCE_BANDS.filter((b) => b.min > 0).map((b) => (
+                    <option key={b.label} value={b.label}>
+                      {b.label}
+                    </option>
+                  ))}
+                </select>
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </label>
+            </div>
+            <ParamTags panel="Years of Experience" show={showTags} />
+            <span className="ti-panel-sub">How many years jobseekers have worked; hover a slice for when they started and their past job titles</span>
+            <ExperienceChart bands={exp.bands} provided={exp.provided} />
             <div className="ti-age-stats">
               <div className="ti-card ti-age-stat">
-                <span>Total applications</span>
-                <b>{jobs.summary.total}</b>
+                <span>Average experience</span>
+                <b>{exp.average === null ? '-' : `${exp.average} yrs`}</b>
               </div>
               <div className="ti-card ti-age-stat">
-                <span>Most applied</span>
-                <b>{jobs.summary.topTitle ?? '-'}</b>
+                <span>Most experienced</span>
+                <b>{exp.most === null ? '-' : `${exp.most} yrs`}</b>
               </div>
               <div className="ti-card ti-age-stat">
-                <span>Busiest day</span>
-                <b>{jobs.summary.busiestDay ?? '-'}</b>
+                <span>{expBand === 'all' ? 'Fresh graduates' : 'Most common'}</span>
+                <b>{expBand === 'all' ? exp.fresh : (exp.mostCommon ?? '-')}</b>
               </div>
               <div className="ti-card ti-age-stat">
-                <span>Daily average</span>
-                <b>{jobs.summary.dailyAverage}</b>
+                <span>Not provided</span>
+                <b>{exp.notProvided}</b>
               </div>
             </div>
           </section>
 
           <section className="ti-panel">
-            <h2 className="rc-panel-title">Age</h2>
-            <ParamTags panel="Age" show={showTags} />
-            <span className="ti-panel-sub">
-              Understand the age distribution of your talent pool to identify workforce trends and hiring opportunities.
-            </span>
-            <AgeAreaChart groups={age.groups} shareOf={age.shareOf} />
+            <div className="ti-panel-head">
+              <h2 className="rc-panel-title">Jobseeker Desired Industry</h2>
+              <label className="ti-filter">
+                <select value={indPick} onChange={(e) => setIndPick(e.target.value)} aria-label="Filter by industry">
+                  <option value="all">All industries</option>
+                  {industryOptions(records).map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </label>
+            </div>
+            <ParamTags panel="Desired Industry" show={showTags} />
+            <span className="ti-panel-sub">Industries your jobseekers want to work in; hover a bar for the jobs they want</span>
+            <IndustryChart
+              rows={ind.rows}
+              provided={ind.provided}
+              shareLabel={indPick === 'all' ? 'of jobseekers with an industry' : `of jobseekers wanting ${indPick}`}
+            />
             <div className="ti-age-stats">
               <div className="ti-card ti-age-stat">
-                <span>Total applicants</span>
-                <b>{age.total.toLocaleString()}</b>
+                <span>{indPick === 'all' ? 'Top industry' : 'Top job title'}</span>
+                <b>{ind.top ?? '-'}</b>
               </div>
               <div className="ti-card ti-age-stat">
-                <span>Average age</span>
-                <b>{age.average ?? '-'}</b>
+                <span>{indPick === 'all' ? 'Top industry share' : 'Share of all jobseekers'}</span>
+                <b>{ind.topShare === null ? '-' : `${ind.topShare}%`}</b>
               </div>
               <div className="ti-card ti-age-stat">
-                <span>Largest group</span>
-                <b>{age.largest ?? '-'}</b>
+                <span>{indPick === 'all' ? 'Industries covered' : 'Job titles'}</span>
+                <b>{ind.covered}</b>
               </div>
               <div className="ti-card ti-age-stat">
-                <span>Age not provided</span>
-                <b>{age.notProvided}</b>
+                <span>Not provided</span>
+                <b>{ind.notProvided}</b>
+              </div>
+            </div>
+          </section>
+
+          <section className="ti-panel">
+            <div className="ti-panel-head">
+              <h2 className="rc-panel-title">Jobseeker Expected Salary</h2>
+              <label className="ti-filter">
+                <select value={salBand} onChange={(e) => setSalBand(e.target.value)} aria-label="Filter by salary range">
+                  <option value="all">All salaries</option>
+                  {SALARY_BANDS.map((b) => (
+                    <option key={b.label} value={b.label}>
+                      {b.label}
+                    </option>
+                  ))}
+                </select>
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </label>
+            </div>
+            <ParamTags panel="Expected Salary Range" show={showTags} />
+            <span className="ti-panel-sub">Middle of each jobseeker's expected range, as a monthly amount; hover a point for the job titles</span>
+            <SalaryChart
+              bands={sal.bands}
+              provided={sal.provided}
+              color={salBand === 'all' ? undefined : SALARY_COLORS[SALARY_BANDS.findIndex((b) => b.label === salBand)]}
+            />
+            <div className="ti-age-stats">
+              <div className="ti-card ti-age-stat">
+                <span>Median expectation</span>
+                <b>{sal.median === null ? '-' : rm(Math.round(sal.median / 100) * 100)}</b>
+              </div>
+              <div className="ti-card ti-age-stat">
+                <span>Most common</span>
+                <b>{sal.mostCommon ?? '-'}</b>
+              </div>
+              <div className="ti-card ti-age-stat">
+                <span>Asked monthly</span>
+                <b>{sal.monthlyShare === null ? '-' : `${sal.monthlyShare}%`}</b>
+              </div>
+              <div className="ti-card ti-age-stat">
+                <span>Not provided</span>
+                <b>{sal.notProvided}</b>
+              </div>
+            </div>
+          </section>
+
+          <section className="ti-panel">
+            <div className="ti-panel-head">
+              <h2 className="rc-panel-title">Jobseeker Education Level</h2>
+              <div className="ti-filters">
+                <label className="ti-filter">
+                  <select value={eduLevel} onChange={(e) => setEduLevel(e.target.value)} aria-label="Filter by education level">
+                    <option value="all">All levels</option>
+                    {EDUCATION_LEVELS.map((level) => (
+                      <option key={level} value={level}>
+                        {level}
+                      </option>
+                    ))}
+                  </select>
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                    <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </label>
+                <label className="ti-filter">
+                  <select value={eduFieldValue} onChange={(e) => setEduFieldPick(e.target.value)} aria-label="Filter by field of study">
+                    <option value="all">All fields</option>
+                    {eduFieldOptions.map((field) => (
+                      <option key={field} value={field}>
+                        {field}
+                      </option>
+                    ))}
+                  </select>
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                    <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </label>
+              </div>
+            </div>
+            <ParamTags panel="Education" show={showTags} />
+            {eduLevel === 'all' ? (
+              <>
+                <span className="ti-panel-sub">
+                  {eduFieldValue === 'all'
+                    ? 'Highest education of your jobseekers; hover a bar for their fields of study'
+                    : `Highest education of jobseekers who studied ${eduFieldValue}`}
+                </span>
+                <EducationChart bars={eduByField.bars} provided={eduByField.provided} />
+                <div className="ti-age-stats">
+                  <div className="ti-card ti-age-stat">
+                    <span>Most common</span>
+                    <b>{eduByField.mostCommon ?? '-'}</b>
+                  </div>
+                  <div className="ti-card ti-age-stat">
+                    <span>Degree or higher</span>
+                    <b>{eduByField.degreeOrHigher === null ? '-' : `${eduByField.degreeOrHigher}%`}</b>
+                  </div>
+                  <div className="ti-card ti-age-stat">
+                    <span>{eduFieldValue === 'all' ? 'Top field' : 'Share of all jobseekers'}</span>
+                    <b>
+                      {eduFieldValue === 'all'
+                        ? (edu.topField ?? '-')
+                        : edu.provided === 0
+                          ? '-'
+                          : `${Math.round((eduByField.provided / edu.provided) * 100)}%`}
+                    </b>
+                  </div>
+                  <div className="ti-card ti-age-stat">
+                    <span>Not provided</span>
+                    <b>{edu.notProvided}</b>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <span className="ti-panel-sub">
+                  {eduFieldValue === 'all'
+                    ? `Fields of study of jobseekers whose highest level is ${eduLevel}; hover a bar for their institutions`
+                    : `Where jobseekers studied ${eduFieldValue} at ${eduLevel} level; hover a bar for when they finished`}
+                </span>
+                <IndustryChart
+                  rows={eduField.rows}
+                  provided={eduField.provided}
+                  shareLabel={`of ${eduLevel} holders`}
+                  emptyText={`No jobseekers with ${eduLevel} yet`}
+                />
+                <div className="ti-age-stats">
+                  <div className="ti-card ti-age-stat">
+                    <span>{eduFieldValue === 'all' ? 'Top field' : 'Top institution'}</span>
+                    <b>{eduField.topField ?? '-'}</b>
+                  </div>
+                  <div className="ti-card ti-age-stat">
+                    <span>Share of all jobseekers</span>
+                    <b>{eduField.share === null ? '-' : `${eduField.share}%`}</b>
+                  </div>
+                  <div className="ti-card ti-age-stat">
+                    <span>{eduFieldValue === 'all' ? 'Top institution' : 'Institutions'}</span>
+                    <b>{eduFieldValue === 'all' ? (eduField.topInstitution ?? '-') : eduField.rows.length}</b>
+                  </div>
+                  <div className="ti-card ti-age-stat">
+                    <span>Not provided</span>
+                    <b>{eduField.notProvided}</b>
+                  </div>
+                </div>
+              </>
+            )}
+          </section>
+
+          <section className="ti-panel">
+            <div className="ti-panel-head">
+              <h2 className="rc-panel-title">Jobseeker Job Title</h2>
+              <label className="ti-filter">
+                <select value={jobsState} onChange={(e) => setJobsState(e.target.value)} aria-label="Filter by state">
+                  <option value="all">All states</option>
+                  {STATES.map((st) => (
+                    <option key={st.name} value={st.name}>
+                      {st.name}
+                    </option>
+                  ))}
+                </select>
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </label>
+            </div>
+            <ParamTags panel="Job Title Target" show={showTags} />
+            <span className="ti-panel-sub">
+              {jobsState === 'all'
+                ? 'The job your jobseekers want, from Desired Job Title; hover a bar for where they are from'
+                : `The job jobseekers from ${jobsState} want, from Desired Job Title; hover a bar for the industries they want`}
+            </span>
+            <IndustryChart
+              rows={desired.rows}
+              provided={desired.provided}
+              shareLabel={jobsState === 'all' ? 'of jobseekers with a desired job' : `of jobseekers from ${jobsState} with a desired job`}
+              emptyText="No desired job data yet"
+            />
+            <div className="ti-age-stats">
+              <div className="ti-card ti-age-stat">
+                <span>With a desired job</span>
+                <b>{desired.provided}</b>
+              </div>
+              <div className="ti-card ti-age-stat">
+                <span>Most wanted</span>
+                <b>{desired.top ?? '-'}</b>
+              </div>
+              <div className="ti-card ti-age-stat">
+                <span>Job titles</span>
+                <b>{desired.covered}</b>
+              </div>
+              <div className="ti-card ti-age-stat">
+                <span>Not provided</span>
+                <b>{desired.notProvided}</b>
               </div>
             </div>
           </section>
@@ -1359,7 +2059,7 @@ export default function TalentIntelligencePage() {
                   </span>
                   <span className="ti-device-value">{d.pct}%</span>
                   <span className="ti-device-sub">
-                    {d.count} {d.count === 1 ? 'applicant' : 'applicants'}
+                    {d.count} {d.count === 1 ? 'jobseeker' : 'jobseekers'}
                   </span>
                 </div>
               ))}
@@ -1378,56 +2078,6 @@ export default function TalentIntelligencePage() {
               ))}
             </div>
             <DeviceAgeChart columns={devicesByAge} />
-          </section>
-
-          <section className="ti-panel">
-            <h2 className="rc-panel-title">Years of Experience</h2>
-            <ParamTags panel="Years of Experience" show={showTags} />
-            <span className="ti-panel-sub">How many years applicants have worked; hover a slice for when they started and their past job titles</span>
-            <ExperienceChart bands={exp.bands} provided={exp.provided} />
-            <div className="ti-age-stats">
-              <div className="ti-card ti-age-stat">
-                <span>Average experience</span>
-                <b>{exp.average === null ? '-' : `${exp.average} yrs`}</b>
-              </div>
-              <div className="ti-card ti-age-stat">
-                <span>Most experienced</span>
-                <b>{exp.most === null ? '-' : `${exp.most} yrs`}</b>
-              </div>
-              <div className="ti-card ti-age-stat">
-                <span>Fresh graduates</span>
-                <b>{exp.fresh}</b>
-              </div>
-              <div className="ti-card ti-age-stat">
-                <span>Not provided</span>
-                <b>{exp.notProvided}</b>
-              </div>
-            </div>
-          </section>
-
-          <section className="ti-panel">
-            <h2 className="rc-panel-title">Education Level</h2>
-            <ParamTags panel="Education" show={showTags} />
-            <span className="ti-panel-sub">Highest education of your applicants; hover a bar for their fields of study</span>
-            <EducationChart bars={edu.bars} provided={edu.provided} />
-            <div className="ti-age-stats">
-              <div className="ti-card ti-age-stat">
-                <span>Most common</span>
-                <b>{edu.mostCommon ?? '-'}</b>
-              </div>
-              <div className="ti-card ti-age-stat">
-                <span>Degree or higher</span>
-                <b>{edu.degreeOrHigher === null ? '-' : `${edu.degreeOrHigher}%`}</b>
-              </div>
-              <div className="ti-card ti-age-stat">
-                <span>Top field</span>
-                <b>{edu.topField ?? '-'}</b>
-              </div>
-              <div className="ti-card ti-age-stat">
-                <span>Not provided</span>
-                <b>{edu.notProvided}</b>
-              </div>
-            </div>
           </section>
         </div>
       </main>
@@ -1480,7 +2130,7 @@ export default function TalentIntelligencePage() {
         <input type="checkbox" checked={useDummy} onChange={(e) => setUseDummy(e.target.checked)} />
         <span className="ti-switch-track" aria-hidden="true" />
         Dummy data
-        <small>{DUMMY_APPLICANTS.length} applicants</small>
+        <small>{DUMMY_APPLICANTS.length} jobseekers</small>
       </label>
     </EmployerShell>
   );
