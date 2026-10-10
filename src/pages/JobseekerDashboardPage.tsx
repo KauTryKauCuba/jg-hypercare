@@ -26,6 +26,8 @@ const SALARY_TYPES = ['Monthly', 'Daily', 'Hourly', 'Yearly'];
 const EDUCATION_LEVELS = ['SPM', 'STPM / Foundation', 'Diploma', "Bachelor's Degree", "Master's Degree", 'PhD'];
 const SKILLS = ['Adobe Photoshop', 'Adobe Illustrator', 'Figma', 'Communication', 'Microsoft Excel', 'Project Management', 'JavaScript', 'React'];
 const PROFICIENCIES = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
+const LANGUAGES = ['Bahasa Melayu', 'English', 'Mandarin', 'Tamil', 'Cantonese', 'Hokkien', 'Arabic', 'Japanese', 'Korean', 'French'];
+const LANGUAGE_LEVELS = ['Basic', 'Conversational', 'Professional', 'Fluent', 'Native'];
 
 /* ---------- helpers ---------- */
 
@@ -89,6 +91,9 @@ function buildMapping(s: OnboardingState): Mapping[] {
     { section: 'Education', label: 'Description', filled: false },
     { section: 'Skills', label: 'Skill Name', filled: false },
     { section: 'Skills', label: 'Proficiency', filled: false },
+    { section: 'Languages', label: 'Language', filled: false },
+    { section: 'Languages', label: 'Spoken', filled: false },
+    { section: 'Languages', label: 'Written', filled: false },
     { section: 'Resume', label: 'Resume File', filled: false, ai: 'resume_file', aiNote: 'Uploaded on the first AI resume page' },
     { section: 'Links', label: 'Portfolio', filled: false },
   ];
@@ -127,6 +132,7 @@ const ICONS = {
   cake: icon('M4 21h16M5 21v-7h14v7M8 14V9M12 14V9M16 14V9M8 6v.01M12 6v.01M16 6v.01'),
   clock: icon('M10 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM3.5 20c0-3.4 2.9-5.5 6.5-5.5 1.2 0 2.3.2 3.2.7M16 15l4 4M20 15l-4 4'),
   industry: icon('M3 21h18M5 21V10l5 3V10l5 3V5h4v16M8 17h1M12 17h1M16 17h1'),
+  language: icon('M4 5h9M8.5 3v2M6 5c.6 3 2.6 5.6 5 7M11 5c-.8 3.6-3.4 6.6-7 8.5M13 21l4-10 4 10M14.4 17.5h5.2'),
   pin: icon('M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12zM12 11.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z'),
   bag: icon('M4 8h16v11H4zM9 8V5h6v3'),
   book: icon('M12 6c-2-1.5-5-2-8-1.5V19c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V4.5c-3-.5-6 0-8 1.5zM12 6v14.5'),
@@ -279,11 +285,13 @@ type JobPref = { title: string; jobType: string; country: string; state: string;
 type Experience = { title: string; company: string; from: string; to: string; description: string };
 type Education = { institution: string; level: string; from: string; to: string; field: string; description: string };
 type Skill = { name: string; proficiency: string };
+type Language = { name: string; spoken: string; written: string };
 
 const blankPref = (): JobPref => ({ title: '', jobType: '', country: '', state: '', currency: 'RM', from: '', to: '', type: 'Monthly' });
 const blankExp = (): Experience => ({ title: '', company: '', from: '', to: '', description: '' });
 const blankEdu = (): Education => ({ institution: '', level: '', from: '', to: '', field: '', description: '' });
 const blankSkill = (): Skill => ({ name: '', proficiency: '' });
+const blankLanguage = (): Language => ({ name: '', spoken: '', written: '' });
 
 const prefFromOnboarding = (s: OnboardingState): JobPref => ({
   title: s.jobTitle,
@@ -312,6 +320,7 @@ const NAV = [
   { id: 'working-experience', label: 'Working Experience', icon: ICONS.idDoc },
   { id: 'education', label: 'Education', icon: ICONS.book },
   { id: 'skills', label: 'Skills', icon: ICONS.skills },
+  { id: 'languages', label: 'Languages', icon: ICONS.language },
   { id: 'professional-summary', label: 'Summary', icon: ICONS.clipboard },
   { id: 'resume', label: 'Resume', icon: ICONS.idDoc },
   { id: 'links', label: 'Links', icon: ICONS.link },
@@ -341,6 +350,7 @@ export default function JobseekerDashboardPage() {
   const [exps, setExps] = useState<Experience[]>(() => [expFromOnboarding(s)]);
   const [edus, setEdus] = useState<Education[]>(() => [blankEdu()]);
   const [skills, setSkills] = useState<Skill[]>(() => [blankSkill()]);
+  const [languages, setLanguages] = useState<Language[]>(() => [blankLanguage()]);
   const [links, setLinks] = useState<string[]>(['']);
   const [resumeName, setResumeName] = useState('');
 
@@ -658,6 +668,36 @@ export default function JobseekerDashboardPage() {
               })}
               <AddAnother label="Add Another Skill" onClick={() => setSkills((l) => [...l, blankSkill()])} />
               <Actions onCancel={() => setSkills([blankSkill()])} onSave={saved('Skills')} />
+            </Section>
+
+            <Section id="languages" title="Languages" open={isOpen('languages')} onToggle={() => toggle('languages')} missing={missingIn('Languages')}>
+              <h3 className="jd-sub">Add Languages</h3>
+              {languages.map((x, i) => {
+                const t = (label: string) => (i === 0 ? tagFor('Languages', label) : null);
+                const set = (patch: Partial<Language>) => setLanguages((list) => replaceAt(list, i, patch));
+                return (
+                  <EntryBox key={i} title="Language" onRemove={i > 0 ? () => setLanguages((l) => l.filter((_, j) => j !== i)) : undefined}>
+                    <div className="jd-grid-3">
+                      <Field label="Language" tag={t('Language')}>
+                        <SelectField
+                          value={x.name}
+                          placeholder="Select Language"
+                          options={LANGUAGES.filter((name) => name === x.name || !languages.some((other) => other.name === name))}
+                          onChange={(v) => set({ name: v })}
+                        />
+                      </Field>
+                      <Field label="Spoken" tag={t('Spoken')}>
+                        <SelectField value={x.spoken} placeholder="Select Spoken" options={LANGUAGE_LEVELS} onChange={(v) => set({ spoken: v })} />
+                      </Field>
+                      <Field label="Written" tag={t('Written')}>
+                        <SelectField value={x.written} placeholder="Select Written" options={LANGUAGE_LEVELS} onChange={(v) => set({ written: v })} />
+                      </Field>
+                    </div>
+                  </EntryBox>
+                );
+              })}
+              <AddAnother label="Add Another Language" onClick={() => setLanguages((l) => [...l, blankLanguage()])} />
+              <Actions onCancel={() => setLanguages([blankLanguage()])} onSave={saved('Languages')} />
             </Section>
 
             <section id="resume" className="jd-section jd-resume">

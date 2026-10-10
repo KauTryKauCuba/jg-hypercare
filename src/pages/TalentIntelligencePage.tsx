@@ -167,6 +167,7 @@ type DummyRecord = {
   industry: string | null;
   salary: Salary | null;
   desiredJob: string | null;
+  languages: LanguageEntry[] | null;
 };
 
 // Roles that lead to each job title, junior to senior; the one shown depends on years of experience.
@@ -293,6 +294,49 @@ const DESIRED_SWITCH: Record<string, string> = {
 const NO_DESIRED_JOB_EVERY = 19;
 
 // Own seed per jobseeker, so the desired job never changes any other dummy value.
+// Languages from the dashboard's Languages section: language + spoken and written proficiency.
+const LANGUAGE_LEVELS = ['Basic', 'Conversational', 'Professional', 'Fluent', 'Native'] as const;
+type LanguageLevel = (typeof LANGUAGE_LEVELS)[number];
+type LanguageEntry = { name: string; spoken: LanguageLevel; written: LanguageLevel };
+const LANGUAGE_LEVEL_COLORS = ['#cbd5e1', '#a5b4fc', '#6366f1', '#0b8a92', '#07bcca'];
+// How likely a Malaysian jobseeker lists each language, and the usual spoken level when they do.
+const LANGUAGE_PROFILES: { name: string; chance: number; levels: [LanguageLevel, number][] }[] = [
+  { name: 'Bahasa Melayu', chance: 0.92, levels: [['Native', 0.55], ['Fluent', 0.3], ['Professional', 0.1], ['Conversational', 0.05]] },
+  { name: 'English', chance: 0.88, levels: [['Fluent', 0.3], ['Professional', 0.35], ['Conversational', 0.25], ['Native', 0.05], ['Basic', 0.05]] },
+  { name: 'Mandarin', chance: 0.32, levels: [['Native', 0.5], ['Fluent', 0.2], ['Conversational', 0.2], ['Basic', 0.1]] },
+  { name: 'Cantonese', chance: 0.14, levels: [['Native', 0.4], ['Fluent', 0.3], ['Conversational', 0.3]] },
+  { name: 'Tamil', chance: 0.1, levels: [['Native', 0.6], ['Fluent', 0.25], ['Conversational', 0.15]] },
+  { name: 'Hokkien', chance: 0.09, levels: [['Native', 0.4], ['Fluent', 0.3], ['Conversational', 0.3]] },
+  { name: 'Japanese', chance: 0.05, levels: [['Basic', 0.5], ['Conversational', 0.35], ['Professional', 0.15]] },
+  { name: 'Arabic', chance: 0.04, levels: [['Basic', 0.6], ['Conversational', 0.4]] },
+  { name: 'Korean', chance: 0.04, levels: [['Basic', 0.6], ['Conversational', 0.4]] },
+  { name: 'French', chance: 0.02, levels: [['Basic', 0.5], ['Conversational', 0.5]] },
+];
+const NO_LANGUAGE_INFO_EVERY = 17;
+
+// Own seed per jobseeker, so languages never change any other dummy value. Written is the same as
+// spoken or one level lower (dialects like Cantonese and Hokkien are mostly spoken only).
+const dummyLanguages = (id: number): LanguageEntry[] | null => {
+  if (id % NO_LANGUAGE_INFO_EVERY === 8) return null;
+  let seed = (id + 67) * 2654435761;
+  const rand = () => {
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    return seed / 4294967296;
+  };
+  const list: LanguageEntry[] = [];
+  for (const p of LANGUAGE_PROFILES) {
+    if (rand() >= p.chance) continue;
+    let r = rand();
+    const spoken = (p.levels.find(([, w]) => (r -= w) < 0) ?? p.levels[0])[0];
+    const dialect = p.name === 'Cantonese' || p.name === 'Hokkien';
+    const drop = dialect ? 2 + Math.floor(rand() * 2) : rand() < 0.35 ? 1 : 0;
+    const written = LANGUAGE_LEVELS[Math.max(0, LANGUAGE_LEVELS.indexOf(spoken) - drop)];
+    list.push({ name: p.name, spoken, written });
+  }
+  // Everyone who fills the section lists at least one language.
+  return list.length > 0 ? list : [{ name: 'Bahasa Melayu', spoken: 'Native', written: 'Fluent' }];
+};
+
 const dummyDesiredJob = (id: number, jobTitle: string): string | null => {
   if (id % NO_DESIRED_JOB_EVERY === 6) return null;
   let seed = (id + 53) * 2246822519;
@@ -384,6 +428,7 @@ const buildDummyRecords = (now: Date): DummyRecord[] => {
       industry: dummyIndustry(id, desiredJob ?? jobTitle),
       salary: dummySalary(id, desiredJob ?? jobTitle, experience, age),
       desiredJob,
+      languages: dummyLanguages(id),
     };
   });
 };
@@ -760,6 +805,44 @@ const desiredJobStats = (records: { desiredJob: string | null; state: string | n
   };
 };
 
+type LanguageRow = { label: string; counts: number[]; total: number; jobs: [string, number][] };
+
+// All languages: one row per language, split by proficiency level (spoken or written).
+// One language picked: one row per level, so each bar is simply how many are at that level.
+const languageStats = (records: { languages: LanguageEntry[] | null; desiredJob: string | null }[], language = 'all', skill: 'spoken' | 'written' = 'spoken') => {
+  const known = records.filter((r) => r.languages !== null);
+  const speakers = (name: string) => known.flatMap((r) => r.languages!.filter((l) => l.name === name).map((l) => ({ l, r })));
+  const jobsOf = (rs: { desiredJob: string | null }[]) => topCounts(rs.flatMap((r) => (r.desiredJob ? [r.desiredJob] : [])));
+  const names = LANGUAGE_PROFILES.map((p) => p.name).filter((name) => speakers(name).length > 0);
+  const rows: LanguageRow[] =
+    language === 'all'
+      ? names
+          .map((name) => {
+            const sp = speakers(name);
+            return { label: name, counts: LANGUAGE_LEVELS.map((lv) => sp.filter((x) => x.l[skill] === lv).length), total: sp.length, jobs: jobsOf(sp.map((x) => x.r)) };
+          })
+          .sort((a, b) => b.total - a.total)
+      : LANGUAGE_LEVELS.map((lv, k) => {
+          const atLevel = speakers(language).filter((x) => x.l[skill] === lv);
+          return { label: lv, counts: LANGUAGE_LEVELS.map((_, j) => (j === k ? atLevel.length : 0)), total: atLevel.length, jobs: jobsOf(atLevel.map((x) => x.r)) };
+        }).reverse();
+  const picked = language === 'all' ? [] : speakers(language);
+  const topLevel = rows.reduce<LanguageRow | null>((best, row) => (best === null || row.total > best.total ? row : best), null);
+  const strong = picked.filter((x) => LANGUAGE_LEVELS.indexOf(x.l[skill]) >= LANGUAGE_LEVELS.indexOf('Fluent')).length;
+  return {
+    rows,
+    provided: known.length,
+    notProvided: records.length - known.length,
+    names,
+    mostSpoken: language === 'all' ? (rows[0]?.label ?? null) : null,
+    average: known.length === 0 ? null : Math.round((known.reduce((sum, r) => sum + r.languages!.length, 0) / known.length) * 10) / 10,
+    speakers: picked.length,
+    share: known.length === 0 || language === 'all' ? null : Math.round((picked.length / known.length) * 100),
+    commonLevel: picked.length === 0 ? null : topLevel!.label,
+    fluentShare: picked.length === 0 ? null : Math.round((strong / picked.length) * 100),
+  };
+};
+
 type ParamStatus = 'available' | 'partial' | 'missing';
 type Param = { panel: string; label: string; key: string; source: string; status: ParamStatus; note?: string };
 
@@ -781,8 +864,22 @@ const PARAMS: Param[] = [
   { panel: 'Expected Salary Range', label: 'Salary from', key: 'salary_from', source: 'Jobseeker dashboard · Job Preferences', status: 'available', note: 'Collected in onboarding and AI resume' },
   { panel: 'Expected Salary Range', label: 'Salary to', key: 'salary_to', source: 'Jobseeker dashboard · Job Preferences', status: 'available', note: 'Collected in onboarding and AI resume' },
   { panel: 'Expected Salary Range', label: 'Salary type', key: 'salary_type', source: 'Jobseeker dashboard · Job Preferences', status: 'available', note: 'Monthly, Daily, Hourly or Yearly; collected in onboarding and AI resume' },
+  { panel: 'Languages', label: 'Language', key: 'language', source: 'Jobseeker dashboard · Languages', status: 'missing', note: 'On the dashboard only; not in onboarding and not in AI resume yet' },
+  { panel: 'Languages', label: 'Spoken proficiency', key: 'spoken_proficiency', source: 'Jobseeker dashboard · Languages', status: 'missing', note: 'Basic, Conversational, Professional, Fluent or Native; not in onboarding and not in AI resume yet' },
+  { panel: 'Languages', label: 'Written proficiency', key: 'written_proficiency', source: 'Jobseeker dashboard · Languages', status: 'missing', note: 'Basic, Conversational, Professional, Fluent or Native; not in onboarding and not in AI resume yet' },
   { panel: 'Desktop vs Mobile Applied', label: 'Device', key: 'device_type', source: 'Not collected', status: 'missing', note: 'Needs to be recorded from the browser when the jobseeker applies' },
 ];
+
+// Shown in every card when there are no jobseekers yet (dummy data off).
+const NoData = () => (
+  <div className="ti-nodata" role="status">
+    <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+      <path d="M4 20h16M7 16v-4M12 16V8M17 16v-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+    <b>No data yet</b>
+    <span>This will fill in once jobseekers add their details.</span>
+  </div>
+);
 
 type FilterOption = { value: string; label: string };
 
@@ -1160,6 +1257,89 @@ const LocationChart = ({ rows, located }: { rows: LocationRow[]; located: number
           ))}
         </div>
       )}
+    </div>
+  );
+};
+
+const LanguageChart = ({ rows, provided, picked }: { rows: LanguageRow[]; provided: number; picked: boolean }) => {
+  const [active, setActive] = useState<number | null>(null);
+  const max = axisMax(rows.map((r) => r.total), [1, 2, 4, 5, 8, 10, 15, 20, 25, 50]);
+  const ticks = [0, 1, 2, 3, 4].map((i) => (max / 4) * i);
+  const share = (n: number) => (provided === 0 ? 0 : Math.round((n / provided) * 100));
+  const total = rows.reduce((sum, r) => sum + r.total, 0);
+  if (provided === 0) return <span className="ti-loc-empty">No language data yet</span>;
+  return (
+    <div className="ti-loc ti-ind" onMouseLeave={() => setActive(null)}>
+      {rows.map((row, i) => (
+        <div key={row.label} className={`ti-loc-row${active !== null && active !== i ? ' is-dim' : ''}${active === i ? ' is-active' : ''}`}>
+          <span className="ti-loc-label">{row.label}</span>
+          <button
+            type="button"
+            className="ti-loc-track"
+            aria-label={`${row.label}: ${row.total} jobseekers`}
+            onMouseEnter={() => setActive(i)}
+            onFocus={() => setActive(i)}
+            onBlur={() => setActive(null)}
+            onClick={() => setActive((a) => (a === i ? null : i))}
+          >
+            <span className="ti-loc-stack" style={{ width: `${(row.total / max) * 100}%` }}>
+              {/* Highest level first, so Native sits at the start of every bar. */}
+              {[...LANGUAGE_LEVELS.keys()].reverse().map((k) =>
+                row.counts[k] === 0 ? null : <i key={k} style={{ flexGrow: row.counts[k], background: LANGUAGE_LEVEL_COLORS[k] }} />,
+              )}
+            </span>
+          </button>
+          <b className="ti-loc-total">{row.total}</b>
+          {active === i && (
+            <div className={`ti-area-tip ti-loc-tip${i >= rows.length - 2 && rows.length > 2 ? ' is-above' : ''}`} role="status">
+              <b>{row.label}</b>
+              <span>
+                <strong>{row.total}</strong> jobseekers ·{' '}
+                {picked ? `${total === 0 ? 0 : Math.round((row.total / total) * 100)}% of its speakers` : `${share(row.total)}% of jobseekers with a language`}
+              </span>
+              <div className="ti-col-tip-rows">
+                {picked
+                  ? row.jobs.map(([job, n]) => (
+                      <span key={job}>
+                        <i style={{ background: LANGUAGE_LEVEL_COLORS[LANGUAGE_LEVELS.indexOf(row.label as LanguageLevel)] }} />
+                        {job}
+                        <em>{n}</em>
+                      </span>
+                    ))
+                  : [...LANGUAGE_LEVELS.keys()].reverse().map((k) =>
+                      row.counts[k] === 0 ? null : (
+                        <span key={k}>
+                          <i style={{ background: LANGUAGE_LEVEL_COLORS[k] }} />
+                          {LANGUAGE_LEVELS[k]}
+                          <em>{row.counts[k]}</em>
+                        </span>
+                      ),
+                    )}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+      <div className="ti-loc-row ti-loc-axis-row">
+        <span />
+        <div className="ti-loc-axis">
+          {ticks.map((v) => (
+            <span key={v} style={{ left: `${(v / max) * 100}%` }}>
+              {v}
+            </span>
+          ))}
+        </div>
+        <span />
+      </div>
+      <div className="ti-legend ti-loc-legend">
+        {[...LANGUAGE_LEVELS.keys()].reverse().map((k) => (
+          <span key={k} className="ti-legend-item">
+            <i style={{ background: LANGUAGE_LEVEL_COLORS[k] }} />
+            {LANGUAGE_LEVELS[k]}
+            <em>{rows.reduce((sum, r) => sum + r.counts[k], 0)}</em>
+          </span>
+        ))}
+      </div>
     </div>
   );
 };
@@ -1732,14 +1912,17 @@ export default function TalentIntelligencePage() {
   const companyId = searchParams.get('company') ?? COMPANIES[0].id;
   const changeCompany = (id: string) => setSearchParams({ company: id });
   const company = COMPANIES.find((c) => c.id === companyId) ?? COMPANIES[0];
-  const [showTags, setShowTags] = useState(true);
-  const [useDummy, setUseDummy] = useState(false);
+  const [showTags, setShowTags] = useState(false);
+  const [useDummy, setUseDummy] = useState(true);
   const [now] = useState(() => new Date());
   const records = useMemo(() => (useDummy ? buildDummyRecords(now) : []), [useDummy, now]);
   const [ageRange, setAgeRange] = useState('all');
   const age = ageStats(records, ageRange);
   const [jobsState, setJobsState] = useState('all');
   const desired = desiredJobStats(records, jobsState);
+  const [langPick, setLangPick] = useState('all');
+  const [langSkill, setLangSkill] = useState<'spoken' | 'written'>('spoken');
+  const lang = languageStats(records, langPick, langSkill);
   const [locState, setLocState] = useState('all');
   const [locJob, setLocJob] = useState('all');
   const loc = locationStats(locJob === 'all' ? records : records.filter((r) => r.desiredJob === locJob), locState);
@@ -1772,7 +1955,7 @@ export default function TalentIntelligencePage() {
           <button className="rc-tab active">Talent Intelligence</button>
         </div>
 
-        <div className="ti-grid">
+        <div className={`ti-grid${records.length === 0 ? ' is-empty' : ''}`}>
           <section className="ti-panel">
             <div className="ti-panel-head">
               <h2 className="rc-panel-title">Jobseeker Age</h2>
@@ -1811,6 +1994,7 @@ export default function TalentIntelligencePage() {
                 <b>{age.notProvided}</b>
               </div>
             </div>
+            {records.length === 0 && <NoData />}
           </section>
 
           <section className="ti-panel">
@@ -1852,6 +2036,7 @@ export default function TalentIntelligencePage() {
                 <b>{loc.notProvided}</b>
               </div>
             </div>
+            {records.length === 0 && <NoData />}
           </section>
 
           <section className="ti-panel">
@@ -1885,6 +2070,7 @@ export default function TalentIntelligencePage() {
                 <b>{exp.notProvided}</b>
               </div>
             </div>
+            {records.length === 0 && <NoData />}
           </section>
 
           <section className="ti-panel">
@@ -1922,6 +2108,7 @@ export default function TalentIntelligencePage() {
                 <b>{ind.notProvided}</b>
               </div>
             </div>
+            {records.length === 0 && <NoData />}
           </section>
 
           <section className="ti-panel">
@@ -1959,6 +2146,7 @@ export default function TalentIntelligencePage() {
                 <b>{sal.notProvided}</b>
               </div>
             </div>
+            {records.length === 0 && <NoData />}
           </section>
 
           <section className="ti-panel">
@@ -2046,11 +2234,12 @@ export default function TalentIntelligencePage() {
                 </div>
               </>
             )}
+            {records.length === 0 && <NoData />}
           </section>
 
           <section className="ti-panel">
             <div className="ti-panel-head">
-              <h2 className="rc-panel-title">Jobseeker Job Title</h2>
+              <h2 className="rc-panel-title">Jobseeker Desired Job</h2>
               <FilterSelect
                 label="Filter by state"
                 value={jobsState}
@@ -2088,6 +2277,78 @@ export default function TalentIntelligencePage() {
                 <b>{desired.notProvided}</b>
               </div>
             </div>
+            {records.length === 0 && <NoData />}
+          </section>
+
+          <section className="ti-panel">
+            <div className="ti-panel-head">
+              <h2 className="rc-panel-title">Jobseeker Languages</h2>
+              <div className="ti-filters">
+                <FilterSelect
+                  label="Filter by language"
+                  value={langPick}
+                  onChange={setLangPick}
+                  options={[{ value: 'all', label: 'All languages' }, ...lang.names.map((name) => ({ value: name, label: name }))]}
+                />
+                <FilterSelect
+                  label="Spoken or written"
+                  value={langSkill}
+                  onChange={(v) => setLangSkill(v as 'spoken' | 'written')}
+                  options={[
+                    { value: 'spoken', label: 'Spoken' },
+                    { value: 'written', label: 'Written' },
+                  ]}
+                />
+              </div>
+            </div>
+            <ParamTags panel="Languages" show={showTags} />
+            <span className="ti-panel-sub">
+              {langPick === 'all'
+                ? `Languages your jobseekers know, by ${langSkill} proficiency; hover a bar for the levels`
+                : `How well jobseekers know ${langPick} (${langSkill}); hover a bar for the jobs they want`}
+            </span>
+            <LanguageChart rows={lang.rows} provided={lang.provided} picked={langPick !== 'all'} />
+            <div className="ti-age-stats">
+              {langPick === 'all' ? (
+                <>
+                  <div className="ti-card ti-age-stat">
+                    <span>With languages</span>
+                    <b>{lang.provided}</b>
+                  </div>
+                  <div className="ti-card ti-age-stat">
+                    <span>Most known</span>
+                    <b>{lang.mostSpoken ?? '-'}</b>
+                  </div>
+                  <div className="ti-card ti-age-stat">
+                    <span>Languages per jobseeker</span>
+                    <b>{lang.average ?? '-'}</b>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="ti-card ti-age-stat">
+                    <span>Know {langPick}</span>
+                    <b>
+                      {lang.speakers}
+                      {lang.share !== null && <small className="ti-stat-note"> · {lang.share}%</small>}
+                    </b>
+                  </div>
+                  <div className="ti-card ti-age-stat">
+                    <span>Most common level</span>
+                    <b>{lang.commonLevel ?? '-'}</b>
+                  </div>
+                  <div className="ti-card ti-age-stat">
+                    <span>Fluent or native</span>
+                    <b>{lang.fluentShare === null ? '-' : `${lang.fluentShare}%`}</b>
+                  </div>
+                </>
+              )}
+              <div className="ti-card ti-age-stat">
+                <span>Not provided</span>
+                <b>{lang.notProvided}</b>
+              </div>
+            </div>
+            {records.length === 0 && <NoData />}
           </section>
 
           <section className="ti-panel">
@@ -2122,6 +2383,7 @@ export default function TalentIntelligencePage() {
               ))}
             </div>
             <DeviceAgeChart columns={devicesByAge} />
+            {records.length === 0 && <NoData />}
           </section>
         </div>
       </main>

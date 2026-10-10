@@ -544,10 +544,11 @@
   color: #dc2626;
 }
 
+/* Mapping sits above the Dummy data switch (34px switch + 8px gap). */
 .ti-mapping {
   position: fixed;
   left: 16px;
-  bottom: 16px;
+  bottom: 58px;
   z-index: 40;
   display: flex;
   flex-direction: column;
@@ -708,7 +709,7 @@
 
 .ti-dummy-fab {
   position: fixed;
-  left: 170px;
+  left: 16px;
   bottom: 16px;
   z-index: 40;
   display: flex;
@@ -1115,4 +1116,43 @@
 
 .ti-age-x span[style] b {
   color: var(--c);
+}
+
+.ti-stat-note {
+  font-size: 14px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+/* No jobseekers yet: every card shows only its title, tags, description and "No data yet". */
+.ti-grid.is-empty .ti-panel > :not(.ti-panel-head):not(.rc-panel-title):not(.ti-tags):not(.ti-panel-sub):not(.ti-nodata),
+.ti-grid.is-empty .ti-panel-head .ti-filter,
+.ti-grid.is-empty .ti-panel-head .ti-filters {
+  display: none;
+}
+
+.ti-nodata {
+  flex: 1;
+  min-height: 220px;
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1.5px dashed #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.ti-nodata b {
+  font-size: 16px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.ti-nodata span {
+  font-size: 14px;
 }

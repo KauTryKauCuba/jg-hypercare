@@ -18,6 +18,16 @@ export type JoinedCompany = {
   // change never reaches back and changes what an existing company is worth. Older saved data may not
   // have this; readers fall back to the employer's current rate for those.
   rateUsed?: number;
+  // Full details for a company added by hand (Add company button); demo companies look theirs up instead.
+  details?: {
+    meta: string;
+    industry: string;
+    location: string;
+    verified: boolean;
+    plan: 'Freemium' | 'GigaStandard' | 'GigaPremium';
+    billing?: 'Monthly' | 'Yearly';
+    periodsPaid?: number;
+  };
 };
 
 // A code the employer hands to a specific person, who earns the employer's commission rate on every company it brings in.
@@ -91,6 +101,10 @@ const defaults = (): ReferralMap =>
 let cachedRaw: string | null | undefined;
 let cachedValue: ReferralMap = defaults();
 
+// Demo companies that were renamed; saved data still refers to them by the old name.
+const RENAMED_COMPANIES: [string, string][] = [['AFED Digital Sdn Bhd', 'Teraju Industrial Systems Sdn Bhd']];
+const renameOldCompanies = (raw: string) => RENAMED_COMPANIES.reduce((text, [from, to]) => text.split(from).join(to), raw);
+
 function readRaw(): string | null {
   try {
     return localStorage.getItem(STORAGE_KEY);
@@ -106,7 +120,7 @@ function getSnapshot(): ReferralMap {
     cachedRaw = raw;
     let stored: ReferralMap = {};
     try {
-      stored = raw ? JSON.parse(raw) : {};
+      stored = raw ? JSON.parse(renameOldCompanies(raw)) : {};
     } catch {
       stored = {};
     }
@@ -171,7 +185,7 @@ export const getReferralsSnapshot = () => getSnapshot();
 export function assignSalesInvoiceNos(lines: { id: string; period: string; order: number }[]): Record<string, string> {
   let numbers: Record<string, string> = {};
   try {
-    numbers = JSON.parse(localStorage.getItem(SALES_INVOICE_KEY) ?? '{}');
+    numbers = JSON.parse(renameOldCompanies(localStorage.getItem(SALES_INVOICE_KEY) ?? '{}'));
   } catch {
     numbers = {};
   }

@@ -1224,3 +1224,93 @@ label.re-breakdown-row {
   display: flex;
   min-width: 0;
 }
+
+/* Floating switch for Assigned Referral Codes (same look as Talent Intelligence's Dummy data switch) */
+.re-fabs {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.rc-layout .re-fab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 6px 0 14px;
+  border: none;
+  border-radius: 999px;
+  background: #131b2e;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  box-shadow: 0 6px 16px rgba(16, 24, 40, 0.2);
+  cursor: pointer;
+}
+
+.rc-layout .re-fab:has(.re-fab-switch) {
+  padding-left: 10px;
+}
+
+.re-fab-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #334155;
+  font-size: 10.5px;
+}
+
+.re-fab-switch {
+  position: relative;
+  width: 30px;
+  height: 17px;
+  border-radius: 999px;
+  background: #475569;
+}
+
+.re-fab-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: transform 0.15s;
+}
+
+.re-fab-switch {
+  transition: background 0.15s;
+}
+
+.re-fab-switch.on {
+  background: #07bcca;
+}
+
+.re-fab-switch.on::after {
+  transform: translateX(13px);
+}
+
+.rc-layout .re-fab:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.re-fab-plus {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-left: -4px;
+  border-radius: 50%;
+  background: #07bcca;
+  font-size: 14px;
+  line-height: 1;
+}
+
+

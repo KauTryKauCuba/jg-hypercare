@@ -1,4 +1,3 @@
-import afedLogo from '../assets/referral/afed-logo.png';
 import type { CommissionStatus, ReferralState } from '../store/referralStore';
 
 export type Plan = 'Freemium' | 'GigaStandard' | 'GigaPremium';
@@ -31,7 +30,7 @@ export type CompanyDetails = Omit<ReferredCompany, 'dateJoin' | 'codeUsed'>;
 // Demo companies that join an employer the first time they change their referral code.
 export const REFERRED_BY: Record<string, CompanyDetails[]> = {
   'vads-bp': [
-    { name: 'AFED Digital Sdn Bhd', meta: 'Selangor | 51-200 employees', logo: afedLogo, industry: 'Industrial technology', location: 'Shah Alam, Malaysia', verified: true, plan: 'GigaPremium', billing: 'Yearly', periodsPaid: 1 },
+    { name: 'Teraju Industrial Systems Sdn Bhd', meta: 'Selangor | 51-200 employees', industry: 'Industrial technology', location: 'Shah Alam, Malaysia', verified: true, plan: 'GigaPremium', billing: 'Yearly', periodsPaid: 1 },
     { name: 'Lumina Health Clinic', meta: 'Kuala Lumpur | 11-50 employees', industry: 'Healthcare', location: 'Bangsar, Malaysia', verified: true, plan: 'GigaStandard', billing: 'Yearly', periodsPaid: 1 },
     { name: 'Orbit Freight Services', meta: 'Penang | 201-500 employees', industry: 'Logistics & supply chain', location: 'Bayan Lepas, Malaysia', verified: false, plan: 'Freemium' },
     { name: 'Kopi Tiam Co.', meta: 'Johor | 51-200 employees', industry: 'Food & beverage', location: 'Johor Bahru, Malaysia', verified: true, plan: 'GigaStandard', billing: 'Monthly', periodsPaid: 1 },
@@ -53,7 +52,7 @@ export const NEW_JOINER_POOL: CompanyDetails[] = [
 export const getReferredCompanies = (companyId: string, referral: ReferralState): ReferredCompany[] => {
   const catalogue = [...(REFERRED_BY[companyId] ?? []), ...NEW_JOINER_POOL];
   return (referral.newReferrals ?? []).flatMap((r) => {
-    const details = catalogue.find((c) => c.name === r.name);
+    const details = r.details ? { name: r.name, ...r.details } : catalogue.find((c) => c.name === r.name);
     return details
       ? [{ ...details, dateJoin: r.dateJoin, codeUsed: r.codeUsed, assignedId: r.assignedId, rateUsed: r.rateUsed }]
       : [];

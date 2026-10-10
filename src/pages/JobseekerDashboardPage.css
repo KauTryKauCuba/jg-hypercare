@@ -686,6 +686,13 @@
   gap: 12px;
 }
 
+.jd-grid-3 {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr 1fr;
+  align-items: end;
+  gap: 12px;
+}
+
 .jd-grid-4 {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1206,6 +1213,7 @@
 
   .jd-basic-grid,
   .jd-grid-2,
+  .jd-grid-3,
   .jd-grid-4 {
     grid-template-columns: 1fr;
   }

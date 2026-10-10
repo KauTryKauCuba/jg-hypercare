@@ -84,6 +84,27 @@ function PhoneIcon() {
   );
 }
 
+// Random dummy companies for the Add company button. {w} is replaced with a word that fits the industry.
+const DUMMY_NAME_FIRST = ['Maju', 'Cahaya', 'Mega', 'Bintang', 'Harmoni', 'Sinar', 'Prima', 'Jaya', 'Nusantara', 'Gemilang'];
+const DUMMY_NAME_SECOND = ['{w}', '{w}', 'Global {w}', '{w} Hub', '{w} Works'];
+const DUMMY_NAME_SUFFIX = ['Sdn Bhd', 'Enterprise', 'Berhad', 'Trading'];
+const DUMMY_INDUSTRIES: [string, string][] = [
+  ['Retail', 'Mart'],
+  ['Food & beverage', 'Kitchen'],
+  ['Information technology', 'Tech'],
+  ['Logistics & supply chain', 'Logistics'],
+  ['Healthcare', 'Medic'],
+  ['Education', 'Academy'],
+  ['Construction', 'Builders'],
+  ['Hospitality', 'Resorts'],
+  ['Creative & design', 'Studio'],
+  ['Manufacturing', 'Industries'],
+];
+const MALAYSIA_STATES = [
+  'Johor', 'Kedah', 'Kelantan', 'Kuala Lumpur', 'Labuan', 'Melaka', 'Negeri Sembilan', 'Pahang',
+  'Penang', 'Perak', 'Perlis', 'Putrajaya', 'Sabah', 'Sarawak', 'Selangor', 'Terengganu',
+];
+
 export default function ReferralEmployerPage() {
   const navigate = useNavigate();
   const referrals = useReferrals();
@@ -97,6 +118,42 @@ export default function ReferralEmployerPage() {
   const isActive = referral.active && referral.code !== null;
   const referralLink = `https://jobgiga.com/vad/${referral.code}`;
   const referred = getReferredCompanies(company.id, referral);
+  // Add company: one tap adds a random dummy company that joined with the current code.
+  const addDummyCompany = () => {
+    if (!referral.code) return;
+    const pick = <T,>(list: readonly T[]) => list[Math.floor(Math.random() * list.length)];
+    const taken = new Set([...referred.map((r) => r.name), ...COMPANIES.map((c) => c.name)]);
+    const [industry, word] = pick(DUMMY_INDUSTRIES);
+    let name = '';
+    for (let tries = 0; tries < 50 && (!name || taken.has(name)); tries++) {
+      name = `${pick(DUMMY_NAME_FIRST)} ${pick(DUMMY_NAME_SECOND).replace('{w}', word)} ${pick(DUMMY_NAME_SUFFIX)}`;
+    }
+    if (taken.has(name)) name = `${name} ${referred.length + 1}`;
+    const state = pick(MALAYSIA_STATES);
+    const r = Math.random();
+    const plan = r < 0.3 ? 'Freemium' : r < 0.75 ? 'GigaStandard' : 'GigaPremium';
+    updateReferral(company.id, {
+      newReferrals: [
+        {
+          name,
+          dateJoin: formatDate(new Date()),
+          codeUsed: referral.code,
+          // Same rule as demo joiners: today's rate is frozen onto the company.
+          rateUsed: referral.commission ?? 0,
+          details: {
+            meta: `${state} | ${pick(['1-10', '11-50', '51-200', '201-500'])} employees`,
+            industry,
+            location: `${state}, Malaysia`,
+            verified: Math.random() < 0.6,
+            plan,
+            ...(plan === 'Freemium' ? {} : { billing: Math.random() < 0.7 ? 'Monthly' : 'Yearly', periodsPaid: 1 }),
+          },
+        },
+        ...(referral.newReferrals ?? []),
+      ],
+    });
+    showToast(`${name} joined with code ${referral.code}.`);
+  };
   const assignedName = (id?: string) => (id ? referral.assignedCodes?.find((a) => a.id === id)?.name : undefined);
   const commission = commissionSummary(company.id, referral);
   const commissionRequests = referral.commissionRequests ?? [];
@@ -118,6 +175,8 @@ export default function ReferralEmployerPage() {
   };
 
   const [editing, setEditing] = useState(false);
+  // Assigned Referral Codes section is hidden until switched on (bottom-left switch).
+  const [showAssigned, setShowAssigned] = useState(false);
   const [draftCode, setDraftCode] = useState('');
   const [joinToast, setJoinToast] = useState<string | null>(null);
   const [openPurchases, setOpenPurchases] = useState<string[]>([]);
@@ -387,7 +446,7 @@ export default function ReferralEmployerPage() {
                   </div>
                 </div>
 
-                <AssignedCodes company={company} referrals={referrals} onToast={showToast} />
+                {showAssigned && <AssignedCodes company={company} referrals={referrals} onToast={showToast} />}
 
                 <div className="re-commission">
                   <div className="re-commission-head">
@@ -798,6 +857,26 @@ export default function ReferralEmployerPage() {
           </form>
         </div>
       )}
+
+      {/* Floating controls (same style as Talent Intelligence): add a company, show/hide Assigned Referral Codes. */}
+      <div className="re-fabs">
+        <button
+          type="button"
+          className="re-fab"
+          disabled={!isActive}
+          title={isActive ? undefined : 'Activate the referral program first'}
+          onClick={addDummyCompany}
+        >
+          <span className="re-fab-plus" aria-hidden="true">+</span>
+          Add company
+          <span className="re-fab-badge">{isActive ? `code ${referral.code}` : 'inactive'}</span>
+        </button>
+        <button type="button" className="re-fab" aria-pressed={showAssigned} onClick={() => setShowAssigned((on) => !on)}>
+          <span className={`re-fab-switch${showAssigned ? ' on' : ''}`} aria-hidden="true" />
+          Assigned Referral Codes
+          <span className="re-fab-badge">{showAssigned ? 'On' : 'Off'}</span>
+        </button>
+      </div>
     </EmployerShell>
   );
 }
